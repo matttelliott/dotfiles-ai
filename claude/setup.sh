@@ -1,0 +1,143 @@
+#!/bin/bash
+
+# Claude CLI Setup Script
+# This script handles Claude CLI installation across different platforms
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to install Claude CLI
+install_claude_cli() {
+    log_info "Installing Claude CLI for AI-powered coding assistance..."
+    
+    if command -v claude &> /dev/null; then
+        log_info "Claude CLI already installed"
+        return 0
+    fi
+    
+    # Check if npm is available
+    if ! command -v npm &> /dev/null; then
+        log_warning "npm not found. Installing Node.js first..."
+        install_nodejs
+    fi
+    
+    # Install Claude CLI via npm
+    log_info "Installing Claude CLI via npm..."
+    if npm install -g @anthropic-ai/claude-code; then
+        log_success "Claude CLI installed successfully"
+        log_info "Run 'claude auth' to set up your API key"
+        return 0
+    else
+        log_error "Failed to install Claude CLI"
+        return 1
+    fi
+}
+
+# Function to install Node.js based on platform
+install_nodejs() {
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux (Debian/Ubuntu)
+        log_info "Installing Node.js on Linux..."
+        if command -v apt-get &> /dev/null; then
+            curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+        elif command -v yum &> /dev/null; then
+            curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
+            sudo yum install -y nodejs npm
+        else
+            log_error "Unsupported Linux distribution"
+            return 1
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        log_info "Installing Node.js on macOS..."
+        if command -v brew &> /dev/null; then
+            brew install node
+        else
+            log_error "Homebrew not found. Please install Homebrew first."
+            return 1
+        fi
+    else
+        log_error "Unsupported operating system: $OSTYPE"
+        return 1
+    fi
+}
+
+# Function to verify Claude CLI installation
+verify_installation() {
+    if command -v claude &> /dev/null; then
+        local version=$(claude --version 2>/dev/null || echo "unknown")
+        log_success "Claude CLI is installed (version: $version)"
+        return 0
+    else
+        log_error "Claude CLI installation verification failed"
+        return 1
+    fi
+}
+
+# Function to show usage instructions
+show_usage() {
+    echo ""
+    log_info "Claude CLI Setup Complete!"
+    echo ""
+    echo "Next steps:"
+    echo "1. Set up your API key: claude auth"
+    echo "2. Test the installation: claude ask 'Hello, Claude!'"
+    echo ""
+    echo "Available aliases (after sourcing zsh config):"
+    echo "  c         - Quick Claude access"
+    echo "  cask      - Ask Claude questions"
+    echo "  ccode     - Claude code assistance"
+    echo "  cfile     - Claude file operations"
+    echo "  cauth     - Set up your API key"
+    echo ""
+    echo "Available functions:"
+    echo "  caskfile  - Analyze files with Claude"
+    echo "  ccommit   - Generate git commit messages"
+    echo "  cexplain  - Explain terminal commands"
+    echo "  creview   - Code review assistance"
+    echo "  cdoc      - Generate documentation"
+    echo "  cdebug    - Debug code assistance"
+    echo ""
+}
+
+# Main execution
+main() {
+    log_info "Starting Claude CLI setup..."
+    
+    if install_claude_cli && verify_installation; then
+        show_usage
+        return 0
+    else
+        log_error "Claude CLI setup failed"
+        return 1
+    fi
+}
+
+# Run main function if script is executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

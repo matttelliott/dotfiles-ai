@@ -1,0 +1,156 @@
+# https://starship.rs/config/#prompt
+format = """
+[$username ](fg:#3b4261 bg:#7aa2f7)[](bg:#3b4261 fg:#7aa2f7)\
+[$directory](fg:#7aa2f7 bg:#3b4261)[](bg:#7aa2f7 fg:#3b4261)\
+[$git_branch $git_commit ](fg:#3b4261 bg:#7aa2f7)[$git_status](fg:#b2555b bg:#7aa2f7 bold)[](fg:#7aa2f7 bg:#3b4261)\
+$c\
+$elixir\
+$elm\
+$golang\
+$haskell\
+$java\
+$julia\
+$nodejs\
+$nim\
+$rust\
+[](bg:#7aa2f7 fg:#3b4261)\
+$docker_context\
+[](fg:#7aa2f7 bg:none)\
+$fill\
+[$status$cmd_duration](fg:#3b4261)\
+$line_break\
+$time\
+[  ](fg:#73daca)
+"""
+
+right_format = """$jobs"""
+
+[fill]
+symbol = " "
+style = ""
+
+[line_break]
+disabled = false
+# Disable the blank line at the start of the prompt
+add_newline = false
+
+# You can also replace your username with a neat symbol like  to save some space
+[username]
+show_always = true
+style_user = "bg:#7aa2f7 fg:#3b4261"
+style_root = "bg:#7aa2f7 fg:#3b4261"
+format = " $user "
+
+[status]
+disabled = false
+success_symbol = ""
+format = '\[$symbol$common_meaning$signal_name$maybe_int\] '
+
+[cmd_duration]
+min_time = 0
+show_milliseconds = true
+format = "took $duration "
+
+
+
+[directory]
+format = " $path "
+truncation_length = 3
+truncation_symbol = "…/"
+home_symbol = "🏠 ~ "
+
+# Here is how you can shorten some long paths by text replacement
+# similar to mapped_locations in Oh My Posh:
+[directory.substitutions]
+"Documents" = "📄 Documents"
+"Desktop" = "🖥️ Desktop"
+"Downloads" = "⬇️ Downloads"
+"Music" = "🎵 Music"
+"Pictures" = "📷 Pictures"
+"Projects" = "📁 Projects"
+"dotfiles" = "⚙️ dotfiles"
+
+# Keep in mind that the order matters. For example:
+# "Important Documents" = "  "
+# will not be replaced, because "Documents" was already substituted before.
+# So either put "Important Documents" before "Documents" or use the substituted version:
+# "Important  " = "  "
+
+[c]
+symbol = "🔧 "
+style = "bg:#86BBD8"
+format = '[ $symbol ($version) ]($style)'
+
+[docker_context]
+symbol = "🐳 "
+style = "bg:#7aa2f7 fg:#3b4261"
+format = '[ $symbol $context ]($style) $path'
+
+[elixir]
+symbol = "💧 "
+style = "bg:#86BBD8"
+format = '[ $symbol ($version) ]($style)'
+
+[elm]
+symbol = "🌳 "
+style = "bg:#86BBD8"
+format = '[ $symbol ($version) ]($style)'
+
+[git_branch]
+symbol = "🌿 "
+format = "$symbol $branch"
+
+[git_commit]
+commit_hash_length = 4
+only_detached = false
+tag_disabled = false
+format = "\\($hash$tag\\)"
+
+[git_status]
+style = "bg:#7aa2f7 fg:#3b4261"
+format = '$all_status$ahead_behind'
+
+[jobs]
+threshold = 1
+number_threshold = 1
+style = "fg:#73daca"
+
+[golang]
+symbol = "🐹 "
+style = "fg:#7aa2f7 bg:#3b4261"
+format = '[ $symbol ($version) ]($style)'
+
+[haskell]
+symbol = "λ "
+style = "fg:#7aa2f7 bg:#3b4261"
+format = '[ $symbol ($version) ]($style)'
+
+[java]
+symbol = "☕ "
+style = "fg:#7aa2f7 bg:#3b4261"
+format = '[ $symbol ($version) ]($style)'
+
+[julia]
+symbol = "🔬 "
+style = "fg:#7aa2f7 bg:#3b4261"
+format = '[ $symbol ($version) ]($style)'
+
+[nodejs]
+symbol = "⚡"
+style = "fg:#7aa2f7 bg:#3b4261"
+format = '[ $symbol ($version) ]($style)'
+
+[nim]
+symbol = "👑 "
+style = "fg:#7aa2f7 bg:#3b4261"
+format = '[ $symbol ($version) ]($style)'
+
+[rust]
+symbol = "🦀"
+style = "fg:#7aa2f7 bg:#3b4261"
+format = '[ $symbol ($version) ]($style)'
+
+[time]
+disabled = false
+time_format = "%T"
+format = '$time'

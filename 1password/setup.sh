@@ -1,0 +1,262 @@
+#!/usr/bin/env bash
+
+set -e
+
+COLOR_GREEN='\033[0;32m'
+COLOR_YELLOW='\033[1;33m'
+COLOR_RED='\033[0;31m'
+COLOR_RESET='\033[0m'
+
+log_info() { echo -e "${COLOR_GREEN}[INFO]${COLOR_RESET} $1"; }
+log_warn() { echo -e "${COLOR_YELLOW}[WARN]${COLOR_RESET} $1"; }
+log_error() { echo -e "${COLOR_RED}[ERROR]${COLOR_RESET} $1"; }
+
+detect_os() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    elif [[ -f /etc/debian_version ]]; then
+        echo "debian"
+    elif [[ -f /etc/linuxmint/info ]]; then
+        echo "mint"
+    else
+        echo "unknown"
+    fi
+}
+
+install_1password_cli_macos() {
+    log_info "Installing 1Password CLI on macOS..."
+    
+    if command -v brew &> /dev/null; then
+        brew install --cask 1password/tap/1password-cli
+    else
+        log_info "Homebrew not found, installing via direct download..."
+        curl -sSfo op.pkg https://cache.agilebits.com/dist/1P/op2/pkg/v2/op_apple_universal_v2.30.3.pkg
+        sudo installer -pkg op.pkg -target /
+        rm op.pkg
+    fi
+}
+
+install_1password_cli_debian() {
+    log_info "Installing 1Password CLI on Debian/Ubuntu..."
+    
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+        sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+    
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+        sudo tee /etc/apt/sources.list.d/1password.list
+    
+    sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
+    curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
+        sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
+    
+    sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+        sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+    
+    sudo apt update && sudo apt install -y 1password-cli
+}
+
+install_1password_cli_mint() {
+    log_info "Installing 1Password CLI on Linux Mint..."
+    install_1password_cli_debian
+}
+
+setup_ssh_agent_macos() {
+    log_info "Setting up 1Password SSH agent on macOS..."
+    
+    local ssh_config="$HOME/.ssh/config"
+    mkdir -p "$HOME/.ssh"
+    chmod 700 "$HOME/.ssh"
+    
+    if [[ ! -f "$ssh_config" ]]; then
+        touch "$ssh_config"
+        chmod 600 "$ssh_config"
+    fi
+    
+    if ! grep -q "IdentityAgent.*1password" "$ssh_config"; then
+        cat >> "$ssh_config" << 'EOF'
+
+Host *
+	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+EOF
+        log_info "Added 1Password SSH agent to SSH config"
+    else
+        log_info "1Password SSH agent already configured in SSH config"
+    fi
+}
+
+setup_ssh_agent_linux() {
+    log_info "Setting up 1Password SSH agent on Linux..."
+    
+    local ssh_config="$HOME/.ssh/config"
+    mkdir -p "$HOME/.ssh"
+    chmod 700 "$HOME/.ssh"
+    
+    if [[ ! -f "$ssh_config" ]]; then
+        touch "$ssh_config"
+        chmod 600 "$ssh_config"
+    fi
+    
+    if ! grep -q "IdentityAgent.*1password" "$ssh_config"; then
+        cat >> "$ssh_config" << 'EOF'
+
+Host *
+	IdentityAgent "~/.1password/agent.sock"
+EOF
+        log_info "Added 1Password SSH agent to SSH config"
+    else
+        log_info "1Password SSH agent already configured in SSH config"
+    fi
+    
+    mkdir -p "$HOME/.config/systemd/user/"
+    
+    cat > "$HOME/.config/systemd/user/1password-agent.service" << 'EOF'
+[Unit]
+Description=1Password SSH Agent
+After=graphical-session-pre.target
+ConditionEnvironment=DISPLAY
+
+[Service]
+Type=simple
+ExecStart=/opt/1Password/1password --silent
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOF
+    
+    systemctl --user daemon-reload
+    systemctl --user enable 1password-agent.service
+    
+    log_info "Created systemd user service for 1Password agent"
+}
+
+configure_shell_integration() {
+    log_info "Configuring shell integration..."
+    
+    local shell_config=""
+    local shell_name=""
+    
+    if [[ -n "$ZSH_VERSION" ]] || [[ "$SHELL" == *"zsh"* ]]; then
+        shell_config="$HOME/.zshrc"
+        shell_name="zsh"
+    elif [[ -n "$BASH_VERSION" ]] || [[ "$SHELL" == *"bash"* ]]; then
+        shell_config="$HOME/.bashrc"
+        shell_name="bash"
+    else
+        log_warn "Unknown shell, skipping shell integration"
+        return
+    fi
+    
+    if [[ ! -f "$shell_config" ]]; then
+        touch "$shell_config"
+    fi
+    
+    local os_type=$(detect_os)
+    local socket_path=""
+    
+    if [[ "$os_type" == "macos" ]]; then
+        socket_path='$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock'
+    else
+        socket_path='$HOME/.1password/agent.sock'
+    fi
+    
+    if ! grep -q "1PASSWORD_INTEGRATION" "$shell_config"; then
+        cat >> "$shell_config" << EOF
+
+# 1PASSWORD_INTEGRATION
+# 1Password CLI integration
+export OP_BIOMETRIC_UNLOCK_ENABLED=true
+export SSH_AUTH_SOCK="$socket_path"
+
+# 1Password CLI aliases
+alias ops='eval \$(op signin)'
+alias opget='op item get'
+alias oplist='op item list'
+alias opssh='op ssh'
+
+# Function to get credentials from 1Password
+op-get-password() {
+    if [ -z "\$1" ]; then
+        echo "Usage: op-get-password <item-name>"
+        return 1
+    fi
+    op item get "\$1" --fields password
+}
+
+# Function to generate and add SSH key to 1Password
+op-add-ssh-key() {
+    if [ -z "\$1" ]; then
+        echo "Usage: op-add-ssh-key <key-name>"
+        echo "This will generate a new SSH key and store it in 1Password"
+        return 1
+    fi
+    op ssh generate --title "\$1"
+}
+
+# Function to list SSH keys in 1Password
+op-list-ssh-keys() {
+    op item list --categories "SSH Key"
+}
+EOF
+        log_info "Added 1Password integration to $shell_name configuration"
+    else
+        log_info "1Password integration already exists in $shell_name configuration"
+    fi
+}
+
+verify_installation() {
+    log_info "Verifying 1Password CLI installation..."
+    
+    if command -v op &> /dev/null; then
+        local version=$(op --version)
+        log_info "1Password CLI installed: version $version"
+        return 0
+    else
+        log_error "1Password CLI not found in PATH"
+        return 1
+    fi
+}
+
+main() {
+    log_info "Starting 1Password setup..."
+    
+    local os_type=$(detect_os)
+    log_info "Detected OS: $os_type"
+    
+    case "$os_type" in
+        macos)
+            install_1password_cli_macos
+            setup_ssh_agent_macos
+            ;;
+        debian)
+            install_1password_cli_debian
+            setup_ssh_agent_linux
+            ;;
+        mint)
+            install_1password_cli_mint
+            setup_ssh_agent_linux
+            ;;
+        *)
+            log_error "Unsupported OS: $os_type"
+            exit 1
+            ;;
+    esac
+    
+    configure_shell_integration
+    
+    if verify_installation; then
+        log_info "1Password setup completed successfully!"
+        log_info ""
+        log_info "Next steps:"
+        log_info "1. Sign in to 1Password CLI: op signin"
+        log_info "2. Generate an SSH key: op-add-ssh-key <key-name>"
+        log_info "3. List your SSH keys: op-list-ssh-keys"
+        log_info "4. Restart your shell or run: source ~/.${SHELL##*/}rc"
+    else
+        log_error "1Password setup failed. Please check the errors above."
+        exit 1
+    fi
+}
+
+main "$@"
