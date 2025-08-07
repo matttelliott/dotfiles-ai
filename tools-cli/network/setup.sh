@@ -1,0 +1,604 @@
+#!/bin/bash
+# Network tools installation
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_nmap() {
+    log_info "Installing nmap (network scanner)..."
+    
+    if command -v nmap &> /dev/null; then
+        log_info "nmap is already installed: $(nmap --version | head -n1)"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install nmap
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y nmap
+            ;;
+    esac
+    
+    log_success "nmap installed"
+}
+
+install_netcat() {
+    log_info "Installing netcat (network Swiss army knife)..."
+    
+    if command -v nc &> /dev/null || command -v netcat &> /dev/null; then
+        log_info "netcat is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            # macOS comes with netcat
+            log_info "netcat comes pre-installed on macOS"
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y netcat-openbsd
+            ;;
+    esac
+    
+    log_success "netcat installed"
+}
+
+install_mtr() {
+    log_info "Installing mtr (network diagnostic tool)..."
+    
+    if command -v mtr &> /dev/null; then
+        log_info "mtr is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install mtr
+            # Create symlink for non-sudo usage on macOS
+            if [[ -f /usr/local/sbin/mtr ]]; then
+                sudo ln -sf /usr/local/sbin/mtr /usr/local/bin/mtr 2>/dev/null || true
+            fi
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y mtr
+            ;;
+    esac
+    
+    log_success "mtr installed"
+}
+
+install_tcpdump() {
+    log_info "Installing tcpdump (packet analyzer)..."
+    
+    if command -v tcpdump &> /dev/null; then
+        log_info "tcpdump is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            # macOS comes with tcpdump
+            log_info "tcpdump comes pre-installed on macOS"
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y tcpdump
+            ;;
+    esac
+    
+    log_success "tcpdump installed"
+}
+
+install_iperf() {
+    log_info "Installing iperf3 (bandwidth testing)..."
+    
+    if command -v iperf3 &> /dev/null; then
+        log_info "iperf3 is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install iperf3
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y iperf3
+            ;;
+    esac
+    
+    log_success "iperf3 installed"
+}
+
+install_dig() {
+    log_info "Installing dig/bind-utils (DNS tools)..."
+    
+    if command -v dig &> /dev/null; then
+        log_info "dig is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install bind
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y dnsutils
+            ;;
+    esac
+    
+    log_success "dig installed"
+}
+
+install_traceroute() {
+    log_info "Installing traceroute..."
+    
+    if command -v traceroute &> /dev/null; then
+        log_info "traceroute is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            # macOS comes with traceroute
+            log_info "traceroute comes pre-installed on macOS"
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y traceroute
+            ;;
+    esac
+    
+    log_success "traceroute installed"
+}
+
+install_whois() {
+    log_info "Installing whois..."
+    
+    if command -v whois &> /dev/null; then
+        log_info "whois is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install whois
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y whois
+            ;;
+    esac
+    
+    log_success "whois installed"
+}
+
+install_socat() {
+    log_info "Installing socat (multipurpose relay)..."
+    
+    if command -v socat &> /dev/null; then
+        log_info "socat is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install socat
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y socat
+            ;;
+    esac
+    
+    log_success "socat installed"
+}
+
+install_telnet() {
+    log_info "Installing telnet client..."
+    
+    if command -v telnet &> /dev/null; then
+        log_info "telnet is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install telnet
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y telnet
+            ;;
+    esac
+    
+    log_success "telnet installed"
+}
+
+install_speedtest() {
+    log_info "Installing speedtest-cli..."
+    
+    if command -v speedtest-cli &> /dev/null || command -v speedtest &> /dev/null; then
+        log_info "speedtest is already installed"
+        return 0
+    fi
+    
+    # Try official speedtest first
+    case "$PLATFORM" in
+        macos)
+            brew tap teamookla/speedtest
+            brew install speedtest --force
+            ;;
+        debian)
+            # Official speedtest
+            curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+            sudo apt install -y speedtest
+            ;;
+    esac
+    
+    # Fallback to Python version
+    if ! command -v speedtest &> /dev/null; then
+        if command -v pip3 &> /dev/null; then
+            pip3 install --user speedtest-cli
+        fi
+    fi
+    
+    log_success "speedtest installed"
+}
+
+install_rustscan() {
+    log_info "Installing RustScan (modern port scanner)..."
+    
+    if command -v rustscan &> /dev/null; then
+        log_info "RustScan is already installed"
+        return 0
+    fi
+    
+    if command -v cargo &> /dev/null; then
+        cargo install rustscan
+    else
+        case "$PLATFORM" in
+            macos)
+                brew install rustscan
+                ;;
+            debian)
+                # Download from GitHub releases
+                RUSTSCAN_VERSION=$(curl -s https://api.github.com/repos/RustScan/RustScan/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+                wget "https://github.com/RustScan/RustScan/releases/download/${RUSTSCAN_VERSION}/rustscan_${RUSTSCAN_VERSION#v}_amd64.deb"
+                sudo dpkg -i "rustscan_${RUSTSCAN_VERSION#v}_amd64.deb"
+                rm "rustscan_${RUSTSCAN_VERSION#v}_amd64.deb"
+                ;;
+        esac
+    fi
+    
+    if command -v rustscan &> /dev/null; then
+        log_success "RustScan installed"
+    fi
+}
+
+setup_network_aliases() {
+    log_info "Setting up network tool aliases..."
+    
+    local network_aliases='
+# Network tool aliases
+alias n="nmap"
+alias ns="nmap -sn"  # Ping scan
+alias np="nmap -p"   # Port scan
+alias nv="nmap -sV"  # Version detection
+alias na="nmap -A"   # Aggressive scan
+
+# Port scanning
+scan-ports() {
+    # Quick port scan
+    local host="${1:-localhost}"
+    nmap -F "$host"
+}
+
+scan-all-ports() {
+    # Scan all ports
+    local host="${1:-localhost}"
+    nmap -p- "$host"
+}
+
+scan-tcp() {
+    # TCP scan
+    local host="${1:-localhost}"
+    nmap -sT "$host"
+}
+
+scan-udp() {
+    # UDP scan (requires root)
+    local host="${1:-localhost}"
+    sudo nmap -sU "$host"
+}
+
+scan-network() {
+    # Scan local network
+    local network="${1:-192.168.1.0/24}"
+    nmap -sn "$network"
+}
+
+# Netcat shortcuts
+alias nc-listen="nc -l"
+alias nc-scan="nc -zv"
+
+# Network testing
+test-port() {
+    # Test if port is open
+    local host="$1"
+    local port="$2"
+    nc -zv "$host" "$port"
+}
+
+http-server() {
+    # Quick HTTP server
+    local port="${1:-8000}"
+    python3 -m http.server "$port"
+}
+
+tcp-server() {
+    # Simple TCP server
+    local port="${1:-9999}"
+    nc -l "$port"
+}
+
+tcp-client() {
+    # Connect to TCP server
+    local host="$1"
+    local port="$2"
+    nc "$host" "$port"
+}
+
+# MTR (My TraceRoute)
+alias mtr="mtr --report-wide --show-ips"
+alias mtrr="mtr --report --report-cycles 30"
+
+trace() {
+    # Enhanced traceroute
+    local host="$1"
+    if command -v mtr &> /dev/null; then
+        mtr "$host"
+    else
+        traceroute "$host"
+    fi
+}
+
+# DNS tools
+alias d="dig"
+alias dx="dig +short"
+alias dns="dig +trace"
+
+dns-lookup() {
+    # DNS lookup with multiple tools
+    local domain="$1"
+    echo "=== nslookup ==="
+    nslookup "$domain"
+    echo
+    echo "=== dig ==="
+    dig "$domain"
+    echo
+    echo "=== host ==="
+    host "$domain"
+}
+
+reverse-dns() {
+    # Reverse DNS lookup
+    dig -x "$1"
+}
+
+# Network information
+myip() {
+    # Get public IP
+    curl -s ifconfig.me
+    echo
+}
+
+localip() {
+    # Get local IP
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        ifconfig | grep "inet " | grep -v 127.0.0.1 | awk "{print \$2}"
+    else
+        ip addr show | grep "inet " | grep -v 127.0.0.1 | awk "{print \$2}"
+    fi
+}
+
+ports() {
+    # Show listening ports
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo lsof -iTCP -sTCP:LISTEN -P
+    else
+        sudo netstat -tulpn
+    fi
+}
+
+connections() {
+    # Show network connections
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        netstat -an | grep ESTABLISHED
+    else
+        ss -tunap | grep ESTAB
+    fi
+}
+
+# Bandwidth testing
+speed() {
+    # Run speedtest
+    if command -v speedtest &> /dev/null; then
+        speedtest
+    elif command -v speedtest-cli &> /dev/null; then
+        speedtest-cli
+    else
+        echo "speedtest not installed"
+    fi
+}
+
+bandwidth() {
+    # Test bandwidth between hosts
+    local mode="${1:-server}"
+    if [[ "$mode" == "server" ]]; then
+        iperf3 -s
+    else
+        iperf3 -c "$1"
+    fi
+}
+
+# Packet capture
+capture() {
+    # Capture packets
+    local interface="${1:-any}"
+    local output="${2:-capture.pcap}"
+    sudo tcpdump -i "$interface" -w "$output"
+}
+
+capture-http() {
+    # Capture HTTP traffic
+    sudo tcpdump -i any -s 0 -A "tcp port 80"
+}
+
+capture-dns() {
+    # Capture DNS queries
+    sudo tcpdump -i any -s 0 port 53
+}
+
+# WHOIS shortcuts
+alias w="whois"
+
+whois-ip() {
+    whois "$1" | grep -E "(OrgName|NetRange|CIDR|Country)"
+}
+
+# Socat examples
+proxy-tcp() {
+    # TCP proxy
+    local lport="$1"
+    local rhost="$2"
+    local rport="$3"
+    socat TCP-LISTEN:"$lport",fork TCP:"$rhost":"$rport"
+}
+
+# RustScan (if installed)
+if command -v rustscan &> /dev/null; then
+    alias rs="rustscan"
+    alias rscan="rustscan -a"
+    
+    fast-scan() {
+        rustscan -a "$1" -- -A -sC -sV
+    }
+fi
+
+# Network debugging
+net-debug() {
+    local host="${1:-google.com}"
+    echo "=== Ping ==="
+    ping -c 4 "$host"
+    echo
+    echo "=== Traceroute ==="
+    traceroute "$host"
+    echo
+    echo "=== DNS ==="
+    dig "$host"
+    echo
+    echo "=== Port 80/443 ==="
+    nc -zv "$host" 80
+    nc -zv "$host" 443
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# Network tool aliases" "$rc_file"; then
+                echo "$network_aliases" >> "$rc_file"
+                log_success "Added network aliases to $(basename $rc_file)"
+            else
+                log_info "Network aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+# Main installation
+main() {
+    log_info "Setting up network tools..."
+    
+    install_nmap
+    install_netcat
+    install_mtr
+    install_tcpdump
+    install_iperf
+    install_dig
+    install_traceroute
+    install_whois
+    install_socat
+    install_telnet
+    install_speedtest
+    install_rustscan
+    setup_network_aliases
+    
+    log_success "Network tools setup complete!"
+    echo
+    echo "Installed tools:"
+    echo "  • nmap - Network scanner"
+    echo "  • netcat - Network Swiss army knife"
+    echo "  • mtr - Network diagnostic tool"
+    echo "  • tcpdump - Packet analyzer"
+    echo "  • iperf3 - Bandwidth testing"
+    echo "  • dig - DNS lookup"
+    echo "  • traceroute - Route tracing"
+    echo "  • whois - Domain/IP information"
+    echo "  • socat - Multipurpose relay"
+    echo "  • telnet - Telnet client"
+    echo "  • speedtest - Internet speed test"
+    command -v rustscan &> /dev/null && echo "  • RustScan - Modern port scanner"
+    echo
+    echo "Quick commands:"
+    echo "  scan-ports <host>    - Quick port scan"
+    echo "  scan-network         - Scan local network"
+    echo "  test-port <host> <port> - Test specific port"
+    echo "  myip                 - Show public IP"
+    echo "  localip              - Show local IP"
+    echo "  speed                - Run speedtest"
+    echo "  net-debug <host>     - Complete network diagnosis"
+    echo
+    echo "Note: Some tools require sudo for full functionality"
+}
+
+main "$@"

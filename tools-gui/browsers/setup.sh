@@ -1,0 +1,571 @@
+#!/bin/bash
+# Browser installation and configuration
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_chrome() {
+    log_info "Installing Google Chrome..."
+    
+    if command -v google-chrome &> /dev/null || command -v google-chrome-stable &> /dev/null || [[ -d "/Applications/Google Chrome.app" ]]; then
+        log_info "Google Chrome is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask google-chrome
+            else
+                log_warning "Please install Chrome manually from https://www.google.com/chrome/"
+            fi
+            ;;
+        debian)
+            # Add Google Chrome repository
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+            echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+            sudo apt update
+            sudo apt install -y google-chrome-stable
+            ;;
+    esac
+    
+    log_success "Google Chrome installed"
+}
+
+install_firefox() {
+    log_info "Installing Firefox..."
+    
+    if command -v firefox &> /dev/null || [[ -d "/Applications/Firefox.app" ]]; then
+        log_info "Firefox is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask firefox
+            else
+                log_warning "Please install Firefox manually from https://www.mozilla.org/firefox/"
+            fi
+            ;;
+        debian)
+            # Use Mozilla's official repo for latest version
+            sudo add-apt-repository -y ppa:mozillateam/ppa 2>/dev/null || true
+            sudo apt update
+            sudo apt install -y firefox
+            ;;
+    esac
+    
+    log_success "Firefox installed"
+}
+
+install_brave() {
+    log_info "Installing Brave Browser..."
+    
+    if command -v brave-browser &> /dev/null || [[ -d "/Applications/Brave Browser.app" ]]; then
+        log_info "Brave Browser is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask brave-browser
+            else
+                log_warning "Please install Brave manually from https://brave.com/"
+            fi
+            ;;
+        debian)
+            # Add Brave repository
+            sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+            echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+            sudo apt update
+            sudo apt install -y brave-browser
+            ;;
+    esac
+    
+    log_success "Brave Browser installed"
+}
+
+install_chromium() {
+    log_info "Installing Chromium (open-source Chrome)..."
+    
+    if command -v chromium &> /dev/null || command -v chromium-browser &> /dev/null || [[ -d "/Applications/Chromium.app" ]]; then
+        log_info "Chromium is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask chromium
+            fi
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y chromium-browser
+            ;;
+    esac
+    
+    if command -v chromium &> /dev/null || command -v chromium-browser &> /dev/null; then
+        log_success "Chromium installed"
+    fi
+}
+
+install_ungoogled_chromium() {
+    log_info "Installing Ungoogled Chromium..."
+    
+    if [[ -d "/Applications/Chromium.app" ]] && [[ -f "/Applications/Chromium.app/Contents/Info.plist" ]] && grep -q "ungoogled" "/Applications/Chromium.app/Contents/Info.plist" 2>/dev/null; then
+        log_info "Ungoogled Chromium is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask eloston-chromium
+            else
+                log_warning "Please install Ungoogled Chromium manually from https://ungoogled-software.github.io/"
+            fi
+            ;;
+        debian)
+            # More complex on Linux, provide instructions
+            log_info "For Ungoogled Chromium on Linux, visit:"
+            log_info "https://ungoogled-software.github.io/ungoogled-chromium-binaries/"
+            ;;
+    esac
+    
+    log_success "Ungoogled Chromium installation attempted"
+}
+
+install_firefox_developer() {
+    log_info "Installing Firefox Developer Edition..."
+    
+    if [[ -d "/Applications/Firefox Developer Edition.app" ]] || command -v firefox-developer-edition &> /dev/null; then
+        log_info "Firefox Developer Edition is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask firefox-developer-edition
+            else
+                log_warning "Please install Firefox Developer Edition manually"
+            fi
+            ;;
+        debian)
+            # Add Mozilla PPA for developer edition
+            sudo add-apt-repository -y ppa:mozillateam/firefox-next 2>/dev/null || true
+            sudo apt update
+            sudo apt install -y firefox-trunk || sudo apt install -y firefox-developer-edition || {
+                log_info "Installing Firefox Developer Edition via snap..."
+                sudo snap install firefox-developer-edition --beta
+            }
+            ;;
+    esac
+    
+    log_success "Firefox Developer Edition installed"
+}
+
+install_chrome_canary() {
+    log_info "Installing Chrome Canary..."
+    
+    if [[ -d "/Applications/Google Chrome Canary.app" ]]; then
+        log_info "Chrome Canary is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask google-chrome-canary
+            else
+                log_warning "Please install Chrome Canary manually from https://www.google.com/chrome/canary/"
+            fi
+            ;;
+        debian)
+            log_info "Chrome Canary is not officially available for Linux"
+            log_info "Consider using Chrome Dev or Chrome Beta instead"
+            ;;
+    esac
+    
+    if [[ -d "/Applications/Google Chrome Canary.app" ]]; then
+        log_success "Chrome Canary installed"
+    fi
+}
+
+install_opera() {
+    log_info "Installing Opera..."
+    
+    if command -v opera &> /dev/null || [[ -d "/Applications/Opera.app" ]]; then
+        log_info "Opera is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask opera
+            else
+                log_warning "Please install Opera manually from https://www.opera.com/"
+            fi
+            ;;
+        debian)
+            # Add Opera repository
+            wget -qO- https://deb.opera.com/archive.key | sudo apt-key add -
+            echo "deb https://deb.opera.com/opera-stable/ stable non-free" | sudo tee /etc/apt/sources.list.d/opera-stable.list
+            sudo apt update
+            sudo apt install -y opera-stable
+            ;;
+    esac
+    
+    log_success "Opera installed"
+}
+
+install_vivaldi() {
+    log_info "Installing Vivaldi..."
+    
+    if command -v vivaldi &> /dev/null || [[ -d "/Applications/Vivaldi.app" ]]; then
+        log_info "Vivaldi is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask vivaldi
+            else
+                log_warning "Please install Vivaldi manually from https://vivaldi.com/"
+            fi
+            ;;
+        debian)
+            # Add Vivaldi repository
+            wget -qO- https://repo.vivaldi.com/archive/linux_signing_key.pub | sudo apt-key add -
+            echo "deb https://repo.vivaldi.com/archive/deb/ stable main" | sudo tee /etc/apt/sources.list.d/vivaldi.list
+            sudo apt update
+            sudo apt install -y vivaldi-stable
+            ;;
+    esac
+    
+    log_success "Vivaldi installed"
+}
+
+setup_browser_aliases() {
+    log_info "Setting up browser aliases..."
+    
+    local browser_aliases='
+# Browser aliases
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    alias chrome="open -a \"Google Chrome\""
+    alias chrome-canary="open -a \"Google Chrome Canary\""
+    alias firefox="open -a Firefox"
+    alias firefox-dev="open -a \"Firefox Developer Edition\""
+    alias brave="open -a \"Brave Browser\""
+    alias chromium="open -a Chromium"
+    alias opera="open -a Opera"
+    alias vivaldi="open -a Vivaldi"
+    
+    # Open URL in specific browser
+    chrome-open() { open -a "Google Chrome" "$1"; }
+    chrome-canary-open() { open -a "Google Chrome Canary" "$1"; }
+    firefox-open() { open -a Firefox "$1"; }
+    firefox-dev-open() { open -a "Firefox Developer Edition" "$1"; }
+    brave-open() { open -a "Brave Browser" "$1"; }
+    opera-open() { open -a Opera "$1"; }
+    vivaldi-open() { open -a Vivaldi "$1"; }
+else
+    alias chrome="google-chrome-stable"
+    alias chromium="chromium-browser"
+    alias firefox-dev="firefox-developer-edition"
+    alias opera="opera"
+    alias vivaldi="vivaldi-stable"
+    
+    # Open URL in specific browser
+    chrome-open() { google-chrome-stable "$1" &; }
+    firefox-open() { firefox "$1" &; }
+    firefox-dev-open() { firefox-developer-edition "$1" &; }
+    brave-open() { brave-browser "$1" &; }
+    opera-open() { opera "$1" &; }
+    vivaldi-open() { vivaldi-stable "$1" &; }
+fi
+
+# Browser development shortcuts
+alias chrome-dev="chrome --disable-web-security --user-data-dir=/tmp/chrome_dev"
+alias chrome-incognito="chrome --incognito"
+alias firefox-private="firefox --private-window"
+
+# Clear browser caches
+clear-chrome-cache() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        rm -rf ~/Library/Caches/Google/Chrome
+    else
+        rm -rf ~/.cache/google-chrome
+    fi
+    echo "Chrome cache cleared"
+}
+
+clear-firefox-cache() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        rm -rf ~/Library/Caches/Firefox
+    else
+        rm -rf ~/.cache/mozilla/firefox
+    fi
+    echo "Firefox cache cleared"
+}
+
+# Kill all browser processes
+kill-browsers() {
+    pkill -f chrome || true
+    pkill -f firefox || true
+    pkill -f brave || true
+    echo "All browser processes killed"
+}
+
+# Browser profiles
+chrome-profile() {
+    local profile="${1:-Default}"
+    chrome --profile-directory="$profile"
+}
+
+firefox-profile() {
+    firefox -P "$1"
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# Browser aliases" "$rc_file"; then
+                echo "$browser_aliases" >> "$rc_file"
+                log_success "Added browser aliases to $(basename $rc_file)"
+            else
+                log_info "Browser aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+create_browser_configs() {
+    log_info "Creating browser configuration templates..."
+    
+    mkdir -p "$HOME/.config/browsers"
+    
+    # Chrome flags for development
+    cat > "$HOME/.config/browsers/chrome-flags.conf" << 'EOF'
+# Chrome flags for development
+# Place in ~/.config/chrome-flags.conf
+
+# Performance
+--enable-gpu-rasterization
+--enable-zero-copy
+--ignore-gpu-blocklist
+
+# Development
+--enable-devtools-experiments
+--force-color-profile=srgb
+
+# Privacy
+--disable-background-timer-throttling
+--disable-features=PreloadMediaEngagementData
+
+# Security (only for development!)
+# --disable-web-security
+# --allow-file-access-from-files
+# --disable-site-isolation-trials
+EOF
+    
+    # Firefox user.js template
+    cat > "$HOME/.config/browsers/firefox-user.js" << 'EOF'
+// Firefox user preferences
+// Place in Firefox profile directory as user.js
+
+// Developer tools
+user_pref("devtools.theme", "dark");
+user_pref("devtools.editor.keymap", "vim");
+user_pref("devtools.toolbox.host", "right");
+
+// Performance
+user_pref("gfx.webrender.all", true);
+user_pref("layers.acceleration.force-enabled", true);
+
+// Privacy
+user_pref("privacy.trackingprotection.enabled", true);
+user_pref("network.cookie.cookieBehavior", 1);
+
+// UI
+user_pref("browser.tabs.loadBookmarksInTabs", true);
+user_pref("browser.urlbar.suggest.searches", false);
+EOF
+    
+    # Browser extensions list
+    cat > "$HOME/.config/browsers/recommended-extensions.md" << 'EOF'
+# Recommended Browser Extensions
+
+## Developer Tools
+- React Developer Tools
+- Redux DevTools
+- Vue.js devtools
+- Angular DevTools
+- Lighthouse
+- Wappalyzer
+- JSON Viewer
+- Octotree (GitHub code tree)
+- Refined GitHub
+- GitHunt (trending repos)
+
+## Productivity
+- Vimium (Vim keybindings)
+- Dark Reader (dark mode)
+- uBlock Origin (ad blocker)
+- Bitwarden/1Password
+- Notion Web Clipper
+- Pocket
+- Session Buddy
+
+## API Testing
+- Postman Interceptor
+- ModHeader
+- EditThisCookie
+- CORS Unblock
+
+## Design & CSS
+- ColorZilla
+- WhatFont
+- Pesticide (CSS layout debugger)
+- PerfectPixel
+- Dimensions
+
+## Performance
+- Web Vitals
+- Performance Monitor
+- Network Monitor
+
+## Security Testing
+- HTTPS Everywhere
+- Privacy Badger
+- Cookie Editor
+- User-Agent Switcher
+EOF
+    
+    log_success "Browser configurations created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up browsers..."
+    
+    # Ask which browsers to install
+    echo
+    echo "Which browsers would you like to install?"
+    echo "1) Google Chrome"
+    echo "2) Chrome Canary"
+    echo "3) Firefox"  
+    echo "4) Firefox Developer Edition"
+    echo "5) Brave"
+    echo "6) Chromium"
+    echo "7) Ungoogled Chromium"
+    echo "8) Opera"
+    echo "9) Vivaldi"
+    echo "10) All mainstream (Chrome, Firefox, Brave)"
+    echo "11) All developer browsers"
+    echo "12) All browsers"
+    echo "13) Skip browser installation"
+    
+    read -p "Enter your choice (1-13): " choice
+    
+    case $choice in
+        1) install_chrome ;;
+        2) install_chrome_canary ;;
+        3) install_firefox ;;
+        4) install_firefox_developer ;;
+        5) install_brave ;;
+        6) install_chromium ;;
+        7) install_ungoogled_chromium ;;
+        8) install_opera ;;
+        9) install_vivaldi ;;
+        10)
+            install_chrome
+            install_firefox
+            install_brave
+            ;;
+        11)
+            install_chrome_canary
+            install_firefox_developer
+            install_chromium
+            install_ungoogled_chromium
+            ;;
+        12)
+            install_chrome
+            install_chrome_canary
+            install_firefox
+            install_firefox_developer
+            install_brave
+            install_chromium
+            install_ungoogled_chromium
+            install_opera
+            install_vivaldi
+            ;;
+        13) log_info "Skipping browser installation" ;;
+        *) log_warning "Invalid choice" ;;
+    esac
+    
+    setup_browser_aliases
+    create_browser_configs
+    
+    log_success "Browser setup complete!"
+    echo
+    echo "Installed browsers:"
+    command -v google-chrome-stable &> /dev/null && echo "  • Google Chrome"
+    [[ -d "/Applications/Google Chrome.app" ]] && echo "  • Google Chrome"
+    [[ -d "/Applications/Google Chrome Canary.app" ]] && echo "  • Google Chrome Canary"
+    command -v firefox &> /dev/null && echo "  • Firefox"
+    [[ -d "/Applications/Firefox.app" ]] && echo "  • Firefox"
+    command -v firefox-developer-edition &> /dev/null && echo "  • Firefox Developer Edition"
+    [[ -d "/Applications/Firefox Developer Edition.app" ]] && echo "  • Firefox Developer Edition"
+    command -v brave-browser &> /dev/null && echo "  • Brave"
+    [[ -d "/Applications/Brave Browser.app" ]] && echo "  • Brave"
+    command -v chromium-browser &> /dev/null && echo "  • Chromium"
+    [[ -d "/Applications/Chromium.app" ]] && echo "  • Chromium/Ungoogled Chromium"
+    command -v opera &> /dev/null && echo "  • Opera"
+    [[ -d "/Applications/Opera.app" ]] && echo "  • Opera"
+    command -v vivaldi-stable &> /dev/null && echo "  • Vivaldi"
+    [[ -d "/Applications/Vivaldi.app" ]] && echo "  • Vivaldi"
+    echo
+    echo "Configuration files in ~/.config/browsers/"
+    echo "Use 'chrome', 'firefox', 'brave' aliases to launch"
+}
+
+main "$@"

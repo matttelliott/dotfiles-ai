@@ -1,0 +1,583 @@
+#!/bin/bash
+# VS Code installation and configuration
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_vscode() {
+    log_info "Installing Visual Studio Code..."
+    
+    if command -v code &> /dev/null || [[ -d "/Applications/Visual Studio Code.app" ]]; then
+        log_info "VS Code is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask visual-studio-code
+            else
+                log_warning "Please install VS Code manually from https://code.visualstudio.com/"
+            fi
+            ;;
+        debian)
+            # Add Microsoft repository
+            wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+            sudo install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
+            sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
+            sudo apt update
+            sudo apt install -y code
+            ;;
+    esac
+    
+    log_success "VS Code installed"
+}
+
+install_vscode_extensions() {
+    log_info "Installing VS Code extensions..."
+    
+    if ! command -v code &> /dev/null; then
+        log_warning "VS Code CLI not found, skipping extensions"
+        return 1
+    fi
+    
+    # Essential extensions
+    local extensions=(
+        # Language Support
+        "ms-python.python"
+        "ms-python.vscode-pylance"
+        "ms-python.black-formatter"
+        "charliermarsh.ruff"
+        "golang.go"
+        "rust-lang.rust-analyzer"
+        "ms-vscode.cpptools"
+        "ms-toolsai.jupyter"
+        
+        # Web Development
+        "dbaeumer.vscode-eslint"
+        "esbenp.prettier-vscode"
+        "bradlc.vscode-tailwindcss"
+        "formulahendry.auto-rename-tag"
+        "naumovs.color-highlight"
+        "pranaygp.vscode-css-peek"
+        
+        # Frameworks
+        "dsznajder.es7-react-js-snippets"
+        "Vue.volar"
+        "angular.ng-template"
+        "svelte.svelte-vscode"
+        
+        # Git
+        "eamodio.gitlens"
+        "donjayamanne.githistory"
+        "mhutchie.git-graph"
+        
+        # Database
+        "mtxr.sqltools"
+        "mtxr.sqltools-driver-pg"
+        "mtxr.sqltools-driver-mysql"
+        "mtxr.sqltools-driver-sqlite"
+        
+        # Containers
+        "ms-azuretools.vscode-docker"
+        "ms-kubernetes-tools.vscode-kubernetes-tools"
+        "ms-vscode-remote.remote-containers"
+        
+        # AI & Productivity
+        "github.copilot"
+        "github.copilot-chat"
+        "visualstudioexptteam.vscodeintellicode"
+        "visualstudioexptteam.intellicode-api-usage-examples"
+        
+        # Utilities
+        "streetsidesoftware.code-spell-checker"
+        "wayou.vscode-todo-highlight"
+        "gruntfuggly.todo-tree"
+        "alefragnani.project-manager"
+        "alefragnani.bookmarks"
+        "christian-kohler.path-intellisense"
+        "formulahendry.code-runner"
+        "humao.rest-client"
+        "rangav.vscode-thunder-client"
+        
+        # Themes & Icons
+        "pkief.material-icon-theme"
+        "zhuangtongfa.material-theme"
+        "enkia.tokyo-night"
+        "dracula-theme.theme-dracula"
+        
+        # Remote Development
+        "ms-vscode-remote.remote-ssh"
+        "ms-vscode-remote.remote-wsl"
+        "ms-vscode.remote-explorer"
+        
+        # Markdown
+        "yzhang.markdown-all-in-one"
+        "davidanson.vscode-markdownlint"
+        "shd101wyy.markdown-preview-enhanced"
+        
+        # YAML/JSON
+        "redhat.vscode-yaml"
+        "zainchen.json"
+        
+        # Testing
+        "hbenl.vscode-test-explorer"
+        "kavod-io.vscode-jest-test-adapter"
+        
+        # Vim
+        "vscodevim.vim"
+    )
+    
+    for extension in "${extensions[@]}"; do
+        log_info "Installing $extension..."
+        code --install-extension "$extension" --force 2>/dev/null || true
+    done
+    
+    log_success "VS Code extensions installed"
+}
+
+setup_vscode_settings() {
+    log_info "Setting up VS Code configuration..."
+    
+    # Determine VS Code config directory
+    if [[ "$PLATFORM" == "macos" ]]; then
+        VSCODE_CONFIG="$HOME/Library/Application Support/Code/User"
+    else
+        VSCODE_CONFIG="$HOME/.config/Code/User"
+    fi
+    
+    mkdir -p "$VSCODE_CONFIG"
+    
+    # Create settings.json
+    cat > "$VSCODE_CONFIG/settings.json" << 'EOF'
+{
+    // Editor
+    "editor.fontSize": 14,
+    "editor.fontFamily": "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace",
+    "editor.fontLigatures": true,
+    "editor.lineHeight": 1.6,
+    "editor.rulers": [80, 120],
+    "editor.wordWrap": "on",
+    "editor.minimap.enabled": true,
+    "editor.renderWhitespace": "boundary",
+    "editor.suggestSelection": "first",
+    "editor.acceptSuggestionOnCommitCharacter": false,
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.linkedEditing": true,
+    "editor.bracketPairColorization.enabled": true,
+    "editor.guides.bracketPairs": true,
+    "editor.stickyScroll.enabled": true,
+    "editor.inlineSuggest.enabled": true,
+    
+    // Terminal
+    "terminal.integrated.fontSize": 13,
+    "terminal.integrated.fontFamily": "'JetBrains Mono', 'Fira Code', monospace",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.defaultProfile.linux": "zsh",
+    
+    // Workbench
+    "workbench.colorTheme": "Tokyo Night",
+    "workbench.iconTheme": "material-icon-theme",
+    "workbench.startupEditor": "none",
+    "workbench.tree.indent": 20,
+    "workbench.editor.showTabs": true,
+    "workbench.editor.enablePreview": true,
+    "workbench.editor.enablePreviewFromQuickOpen": true,
+    
+    // Files
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/node_modules": true,
+        "**/__pycache__": true,
+        "**/.pytest_cache": true,
+        "**/target": true,
+        "**/.next": true,
+        "**/dist": true,
+        "**/build": true
+    },
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/node_modules/**": true,
+        "**/target/**": true,
+        "**/dist/**": true,
+        "**/build/**": true
+    },
+    
+    // Search
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/bower_components": true,
+        "**/*.code-search": true,
+        "**/target": true,
+        "**/dist": true,
+        "**/build": true
+    },
+    
+    // Git
+    "git.autofetch": true,
+    "git.confirmSync": false,
+    "git.enableSmartCommit": true,
+    "gitlens.hovers.currentLine.over": "line",
+    
+    // Languages - Python
+    "python.defaultInterpreterPath": "python3",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": false,
+    "python.formatting.provider": "black",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        }
+    },
+    
+    // Languages - JavaScript/TypeScript
+    "javascript.updateImportsOnFileMove.enabled": "always",
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "javascript.suggest.autoImports": true,
+    "typescript.suggest.autoImports": true,
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    
+    // Languages - HTML/CSS
+    "[html]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[css]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[scss]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    
+    // Languages - JSON/YAML
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[yaml]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    
+    // Languages - Markdown
+    "[markdown]": {
+        "editor.defaultFormatter": "yzhang.markdown-all-in-one",
+        "editor.wordWrap": "on",
+        "editor.quickSuggestions": {
+            "comments": "on",
+            "strings": "on",
+            "other": "on"
+        }
+    },
+    
+    // Languages - Go
+    "go.useLanguageServer": true,
+    "go.lintOnSave": "workspace",
+    "go.formatTool": "goimports",
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        }
+    },
+    
+    // Languages - Rust
+    "rust-analyzer.cargo.watch.enable": true,
+    "rust-analyzer.checkOnSave.command": "clippy",
+    
+    // Prettier
+    "prettier.semi": true,
+    "prettier.singleQuote": true,
+    "prettier.tabWidth": 2,
+    "prettier.useTabs": false,
+    "prettier.trailingComma": "es5",
+    "prettier.bracketSpacing": true,
+    "prettier.arrowParens": "always",
+    
+    // ESLint
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact"
+    ],
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true
+    },
+    
+    // Emmet
+    "emmet.includeLanguages": {
+        "javascript": "javascriptreact",
+        "typescript": "typescriptreact"
+    },
+    
+    // GitHub Copilot
+    "github.copilot.enable": {
+        "*": true,
+        "yaml": true,
+        "plaintext": true,
+        "markdown": true
+    },
+    
+    // Vim (if using Vim extension)
+    "vim.useSystemClipboard": true,
+    "vim.hlsearch": true,
+    "vim.incsearch": true,
+    "vim.useCtrlKeys": true,
+    "vim.leader": " ",
+    "vim.handleKeys": {
+        "<C-a>": false,
+        "<C-f>": false
+    }
+}
+EOF
+    
+    # Create keybindings.json
+    cat > "$VSCODE_CONFIG/keybindings.json" << 'EOF'
+[
+    // Terminal
+    {
+        "key": "ctrl+`",
+        "command": "workbench.action.terminal.toggleTerminal"
+    },
+    {
+        "key": "ctrl+shift+`",
+        "command": "workbench.action.terminal.new"
+    },
+    
+    // File navigation
+    {
+        "key": "cmd+p",
+        "command": "workbench.action.quickOpen",
+        "when": "!isMac"
+    },
+    {
+        "key": "ctrl+p",
+        "command": "workbench.action.quickOpen",
+        "when": "isMac"
+    },
+    
+    // Multi-cursor
+    {
+        "key": "alt+click",
+        "command": "editor.action.insertCursorAtPosition"
+    },
+    
+    // Code formatting
+    {
+        "key": "shift+alt+f",
+        "command": "editor.action.formatDocument"
+    },
+    
+    // Code navigation
+    {
+        "key": "f12",
+        "command": "editor.action.revealDefinition"
+    },
+    {
+        "key": "shift+f12",
+        "command": "editor.action.goToReferences"
+    },
+    
+    // Sidebar
+    {
+        "key": "ctrl+b",
+        "command": "workbench.action.toggleSidebarVisibility"
+    },
+    
+    // Comments
+    {
+        "key": "ctrl+/",
+        "command": "editor.action.commentLine"
+    }
+]
+EOF
+    
+    # Create snippets directory
+    mkdir -p "$VSCODE_CONFIG/snippets"
+    
+    # JavaScript/TypeScript snippets
+    cat > "$VSCODE_CONFIG/snippets/javascript.json" << 'EOF'
+{
+    "Console Log": {
+        "prefix": "clg",
+        "body": ["console.log('$1', $2);"],
+        "description": "Console log"
+    },
+    "Arrow Function": {
+        "prefix": "af",
+        "body": ["const $1 = ($2) => {", "  $3", "};"],
+        "description": "Arrow function"
+    },
+    "Async Function": {
+        "prefix": "afn",
+        "body": ["const $1 = async ($2) => {", "  $3", "};"],
+        "description": "Async arrow function"
+    },
+    "Try Catch": {
+        "prefix": "tc",
+        "body": ["try {", "  $1", "} catch (error) {", "  console.error(error);", "}"],
+        "description": "Try catch block"
+    }
+}
+EOF
+    
+    log_success "VS Code configuration created"
+}
+
+setup_vscode_aliases() {
+    log_info "Setting up VS Code aliases..."
+    
+    local vscode_aliases='
+# VS Code aliases
+alias c="code"
+alias c.="code ."
+alias cn="code -n"  # New window
+alias cr="code -r"  # Reuse window
+alias cd="code --diff"  # Diff two files
+
+# VS Code functions
+code-ext() {
+    # List or manage extensions
+    case "$1" in
+        list) code --list-extensions ;;
+        install) shift; code --install-extension "$@" ;;
+        uninstall) shift; code --uninstall-extension "$@" ;;
+        *) echo "Usage: code-ext [list|install|uninstall]" ;;
+    esac
+}
+
+code-settings() {
+    # Open VS Code settings
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        code "$HOME/Library/Application Support/Code/User/settings.json"
+    else
+        code "$HOME/.config/Code/User/settings.json"
+    fi
+}
+
+code-sync() {
+    # Export extensions list
+    code --list-extensions > ~/.vscode-extensions.txt
+    echo "Extensions list saved to ~/.vscode-extensions.txt"
+}
+
+code-restore() {
+    # Restore extensions from list
+    if [[ -f ~/.vscode-extensions.txt ]]; then
+        cat ~/.vscode-extensions.txt | xargs -L 1 code --install-extension
+    else
+        echo "No extensions list found"
+    fi
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# VS Code aliases" "$rc_file"; then
+                echo "$vscode_aliases" >> "$rc_file"
+                log_success "Added VS Code aliases to $(basename $rc_file)"
+            else
+                log_info "VS Code aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+# Main installation
+main() {
+    log_info "Setting up Visual Studio Code..."
+    
+    install_vscode
+    
+    # Ask about extensions
+    if command -v code &> /dev/null; then
+        echo
+        read -p "Install recommended VS Code extensions? (y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            install_vscode_extensions
+        fi
+    fi
+    
+    setup_vscode_settings
+    setup_vscode_aliases
+    
+    log_success "VS Code setup complete!"
+    echo
+    echo "VS Code is ready with:"
+    echo "  • Settings configured for multiple languages"
+    echo "  • Keybindings for productivity"
+    echo "  • Snippets for common patterns"
+    if [[ -f "$HOME/.vscode-extensions.txt" ]]; then
+        echo "  • $(wc -l < ~/.vscode-extensions.txt) extensions installed"
+    fi
+    echo
+    echo "Quick commands:"
+    echo "  code .           - Open current directory"
+    echo "  code-settings    - Edit VS Code settings"
+    echo "  code-sync        - Export extensions list"
+    echo "  code-restore     - Restore extensions"
+    echo
+    echo "Configuration location:"
+    if [[ "$PLATFORM" == "macos" ]]; then
+        echo "  ~/Library/Application Support/Code/User/"
+    else
+        echo "  ~/.config/Code/User/"
+    fi
+}
+
+main "$@"

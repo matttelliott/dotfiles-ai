@@ -1,0 +1,587 @@
+#!/bin/bash
+# System monitoring tools installation
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_htop() {
+    log_info "Installing htop..."
+    
+    if command -v htop &> /dev/null; then
+        log_info "htop is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install htop
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y htop
+            ;;
+    esac
+    
+    log_success "htop installed"
+}
+
+install_btop() {
+    log_info "Installing btop++ (better top)..."
+    
+    if command -v btop &> /dev/null; then
+        log_info "btop is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install btop
+            ;;
+        debian)
+            # btop might not be in default repos for older versions
+            if ! sudo apt install -y btop 2>/dev/null; then
+                # Try snap as fallback
+                if command -v snap &> /dev/null; then
+                    sudo snap install btop
+                else
+                    log_warning "btop not available in repos, install manually"
+                fi
+            fi
+            ;;
+    esac
+    
+    if command -v btop &> /dev/null; then
+        log_success "btop installed"
+    fi
+}
+
+install_glances() {
+    log_info "Installing glances..."
+    
+    if command -v glances &> /dev/null; then
+        log_info "glances is already installed"
+        return 0
+    fi
+    
+    # Try pip first for latest version
+    if command -v pip3 &> /dev/null; then
+        pip3 install --user glances[all]
+    elif command -v pipx &> /dev/null; then
+        pipx install glances[all]
+    else
+        case "$PLATFORM" in
+            macos)
+                brew install glances
+                ;;
+            debian)
+                sudo apt update
+                sudo apt install -y glances
+                ;;
+        esac
+    fi
+    
+    log_success "glances installed"
+}
+
+install_ncdu() {
+    log_info "Installing ncdu (disk usage analyzer)..."
+    
+    if command -v ncdu &> /dev/null; then
+        log_info "ncdu is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install ncdu
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y ncdu
+            ;;
+    esac
+    
+    log_success "ncdu installed"
+}
+
+install_duf() {
+    log_info "Installing duf (better df)..."
+    
+    if command -v duf &> /dev/null; then
+        log_info "duf is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install duf
+            ;;
+        debian)
+            # Get latest version
+            DUF_VERSION=$(curl -s https://api.github.com/repos/muesli/duf/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+            ARCH=$(dpkg --print-architecture)
+            
+            # Download and install deb package
+            curl -LO "https://github.com/muesli/duf/releases/download/v${DUF_VERSION}/duf_${DUF_VERSION}_linux_${ARCH}.deb"
+            sudo dpkg -i "duf_${DUF_VERSION}_linux_${ARCH}.deb"
+            rm "duf_${DUF_VERSION}_linux_${ARCH}.deb"
+            ;;
+    esac
+    
+    log_success "duf installed"
+}
+
+install_iotop() {
+    log_info "Installing iotop (I/O monitoring)..."
+    
+    if command -v iotop &> /dev/null; then
+        log_info "iotop is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            # macOS doesn't have iotop, but has similar tools
+            log_info "iotop not available on macOS, use 'sudo fs_usage' instead"
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y iotop
+            ;;
+    esac
+    
+    if command -v iotop &> /dev/null; then
+        log_success "iotop installed"
+    fi
+}
+
+install_nethogs() {
+    log_info "Installing nethogs (network bandwidth monitor)..."
+    
+    if command -v nethogs &> /dev/null; then
+        log_info "nethogs is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install nethogs
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y nethogs
+            ;;
+    esac
+    
+    log_success "nethogs installed"
+}
+
+install_bmon() {
+    log_info "Installing bmon (bandwidth monitor)..."
+    
+    if command -v bmon &> /dev/null; then
+        log_info "bmon is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install bmon
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y bmon
+            ;;
+    esac
+    
+    log_success "bmon installed"
+}
+
+install_procs() {
+    log_info "Installing procs (modern ps replacement)..."
+    
+    if command -v procs &> /dev/null; then
+        log_info "procs is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install procs
+            ;;
+        debian)
+            # Install via cargo if available
+            if command -v cargo &> /dev/null; then
+                cargo install procs
+            else
+                # Download binary
+                PROCS_VERSION=$(curl -s https://api.github.com/repos/dalance/procs/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+                ARCH=$(uname -m)
+                
+                curl -LO "https://github.com/dalance/procs/releases/download/v${PROCS_VERSION}/procs-v${PROCS_VERSION}-${ARCH}-unknown-linux-gnu.zip"
+                unzip -q "procs-v${PROCS_VERSION}-${ARCH}-unknown-linux-gnu.zip"
+                sudo mv procs /usr/local/bin/
+                rm "procs-v${PROCS_VERSION}-${ARCH}-unknown-linux-gnu.zip"
+            fi
+            ;;
+    esac
+    
+    log_success "procs installed"
+}
+
+install_bottom() {
+    log_info "Installing bottom (system monitor)..."
+    
+    if command -v btm &> /dev/null; then
+        log_info "bottom is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            brew install bottom
+            ;;
+        debian)
+            # Install via cargo if available
+            if command -v cargo &> /dev/null; then
+                cargo install bottom
+            else
+                # Download deb package
+                BOTTOM_VERSION=$(curl -s https://api.github.com/repos/ClementTsang/bottom/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+                ARCH=$(dpkg --print-architecture)
+                
+                curl -LO "https://github.com/ClementTsang/bottom/releases/download/${BOTTOM_VERSION}/bottom_${BOTTOM_VERSION}_${ARCH}.deb"
+                sudo dpkg -i "bottom_${BOTTOM_VERSION}_${ARCH}.deb"
+                rm "bottom_${BOTTOM_VERSION}_${ARCH}.deb"
+            fi
+            ;;
+    esac
+    
+    log_success "bottom installed"
+}
+
+setup_monitoring_aliases() {
+    log_info "Setting up monitoring aliases..."
+    
+    local monitoring_aliases='
+# Monitoring aliases
+alias top="htop"  # Use htop instead of top
+alias h="htop"
+alias bt="btop"
+alias g="glances"
+alias nc="ncdu"
+alias df="duf"
+alias ps="procs"
+
+# System monitoring shortcuts
+alias cpu="top -o cpu"
+alias mem="top -o mem"
+alias disk="ncdu /"
+alias net="sudo nethogs"
+alias io="sudo iotop"
+alias bandwidth="bmon"
+
+# Process management
+alias psg="ps aux | grep -v grep | grep"
+alias kill9="kill -9"
+alias killall="pkill"
+
+# System information
+sysinfo() {
+    echo "=== System Information ==="
+    uname -a
+    echo
+    echo "=== CPU ==="
+    lscpu 2>/dev/null || sysctl -n machdep.cpu.brand_string
+    echo
+    echo "=== Memory ==="
+    free -h 2>/dev/null || vm_stat
+    echo
+    echo "=== Disk ==="
+    df -h
+    echo
+    echo "=== Network ==="
+    ip a 2>/dev/null || ifconfig
+}
+
+# Monitor specific process
+monitor() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: monitor <process_name>"
+        return 1
+    fi
+    watch -n 1 "ps aux | grep -v grep | grep $1"
+}
+
+# Show top memory consumers
+topmem() {
+    ps aux | sort -rk 4 | head -n "${1:-10}"
+}
+
+# Show top CPU consumers
+topcpu() {
+    ps aux | sort -rk 3 | head -n "${1:-10}"
+}
+
+# Show disk usage by directory
+diskusage() {
+    du -sh "${1:-.}"/* | sort -rh | head -n "${2:-20}"
+}
+
+# Show open ports
+ports() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo lsof -iTCP -sTCP:LISTEN -P
+    else
+        sudo netstat -tulpn
+    fi
+}
+
+# Show system load
+load() {
+    uptime
+    echo
+    if command -v nproc &> /dev/null; then
+        echo "CPU cores: $(nproc)"
+    else
+        echo "CPU cores: $(sysctl -n hw.ncpu)"
+    fi
+}
+
+# Temperature monitoring (if available)
+temp() {
+    if command -v sensors &> /dev/null; then
+        sensors
+    elif [[ "$OSTYPE" == "darwin"* ]] && command -v osx-cpu-temp &> /dev/null; then
+        osx-cpu-temp
+    else
+        echo "Temperature monitoring not available"
+    fi
+}
+
+# Network connections
+connections() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        netstat -an | grep ESTABLISHED
+    else
+        ss -tunap | grep ESTAB
+    fi
+}
+
+# Watch disk I/O
+watchio() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo fs_usage -w
+    else
+        sudo iotop
+    fi
+}
+
+# System health check
+health() {
+    echo "=== System Health Check ==="
+    echo
+    echo "Load Average:"
+    uptime
+    echo
+    echo "Memory Usage:"
+    free -h 2>/dev/null || vm_stat | head -5
+    echo
+    echo "Disk Usage:"
+    df -h | grep -E "^/dev/"
+    echo
+    echo "Top Processes:"
+    ps aux | sort -rk 3 | head -5
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# Monitoring aliases" "$rc_file"; then
+                echo "$monitoring_aliases" >> "$rc_file"
+                log_success "Added monitoring aliases to $(basename $rc_file)"
+            else
+                log_info "Monitoring aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+create_monitoring_configs() {
+    log_info "Creating monitoring configurations..."
+    
+    # htop config
+    mkdir -p "$HOME/.config/htop"
+    cat > "$HOME/.config/htop/htoprc" << 'EOF'
+# htop configuration
+fields=0 48 17 18 38 39 40 2 46 47 49 1
+sort_key=46
+sort_direction=1
+hide_threads=0
+hide_kernel_threads=1
+hide_userland_threads=0
+shadow_other_users=0
+show_thread_names=1
+show_program_path=0
+highlight_base_name=1
+highlight_megabytes=1
+highlight_threads=1
+tree_view=0
+header_margin=1
+detailed_cpu_time=1
+cpu_count_from_zero=0
+update_process_names=0
+account_guest_in_cpu_meter=0
+color_scheme=0
+delay=15
+left_meters=AllCPUs Memory Swap
+left_meter_modes=1 1 1
+right_meters=Tasks LoadAverage Uptime
+right_meter_modes=2 2 2
+EOF
+    
+    # glances config
+    mkdir -p "$HOME/.config/glances"
+    cat > "$HOME/.config/glances/glances.conf" << 'EOF'
+[global]
+# Refresh rate (in seconds)
+refresh=2
+# Does Glances should check if a newer version is available on PyPI?
+check_update=false
+
+[cpu]
+# Default values if not defined: 50/70/90
+user_careful=50
+user_warning=70
+user_critical=90
+iowait_careful=40
+iowait_warning=60
+iowait_critical=80
+system_careful=50
+system_warning=70
+system_critical=90
+steal_careful=10
+steal_warning=25
+steal_critical=50
+
+[memory]
+# Default values if not defined: 50/70/90
+careful=50
+warning=70
+critical=90
+
+[swap]
+# Default values if not defined: 50/70/90
+careful=50
+warning=70
+critical=90
+
+[network]
+# Default values if not defined: 70/80/90
+rx_careful=70
+rx_warning=80
+rx_critical=90
+tx_careful=70
+tx_warning=80
+tx_critical=90
+
+[diskio]
+# Define the list of disks to hide
+hide=loop.*,/dev/loop.*
+
+[fs]
+# Define the list of file system to hide
+hide=/boot.*,/snap.*
+
+[sensors]
+# Temperatures in °C for sensors
+temperature_core_careful=60
+temperature_core_warning=70
+temperature_core_critical=80
+EOF
+    
+    log_success "Monitoring configurations created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up system monitoring tools..."
+    
+    install_htop
+    install_btop
+    install_glances
+    install_ncdu
+    install_duf
+    install_iotop
+    install_nethogs
+    install_bmon
+    install_procs
+    install_bottom
+    setup_monitoring_aliases
+    create_monitoring_configs
+    
+    log_success "Monitoring tools setup complete!"
+    echo
+    echo "Installed tools:"
+    echo "  • htop - Interactive process viewer"
+    echo "  • btop - Resource monitor with graphs"
+    echo "  • glances - System monitoring tool"
+    echo "  • ncdu - Disk usage analyzer"
+    echo "  • duf - Better df alternative"
+    command -v iotop &> /dev/null && echo "  • iotop - I/O monitor"
+    echo "  • nethogs - Network bandwidth by process"
+    echo "  • bmon - Bandwidth monitor"
+    echo "  • procs - Modern ps replacement"
+    echo "  • bottom - Another system monitor"
+    echo
+    echo "Quick commands:"
+    echo "  htop/h       - Process viewer"
+    echo "  btop/bt      - Resource monitor"
+    echo "  glances/g    - System overview"
+    echo "  ncdu         - Disk usage"
+    echo "  duf          - Disk free space"
+    echo "  sysinfo      - System information"
+    echo "  health       - System health check"
+    echo "  topmem       - Top memory users"
+    echo "  topcpu       - Top CPU users"
+    echo "  ports        - Open ports"
+    echo
+    echo "Configuration files:"
+    echo "  ~/.config/htop/htoprc"
+    echo "  ~/.config/glances/glances.conf"
+}
+
+main "$@"
