@@ -1,0 +1,248 @@
+#!/bin/bash
+# Node.js setup script via nvm (Node Version Manager)
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect shell
+detect_shell() {
+    if [[ -n "$ZSH_VERSION" ]]; then
+        SHELL_NAME="zsh"
+        SHELL_RC="$HOME/.zshrc"
+    elif [[ -n "$BASH_VERSION" ]]; then
+        SHELL_NAME="bash"
+        SHELL_RC="$HOME/.bashrc"
+    else
+        SHELL_NAME="unknown"
+        SHELL_RC="$HOME/.profile"
+    fi
+}
+
+install_nvm() {
+    log_info "Installing nvm (Node Version Manager)..."
+    
+    if [[ -d "$HOME/.nvm" ]]; then
+        log_info "nvm is already installed"
+        # Source nvm for current session
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+        return 0
+    fi
+    
+    # Get latest nvm version
+    NVM_VERSION=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    
+    if [[ -z "$NVM_VERSION" ]]; then
+        NVM_VERSION="v0.39.7"  # Fallback version
+        log_warning "Could not get latest nvm version, using $NVM_VERSION"
+    fi
+    
+    log_info "Installing nvm $NVM_VERSION..."
+    
+    # Install nvm
+    curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh" | bash
+    
+    # Source nvm for current session
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+    
+    log_success "nvm installed successfully"
+}
+
+setup_nvm_shell_integration() {
+    log_info "Setting up nvm shell integration..."
+    
+    detect_shell
+    
+    local nvm_config='
+# nvm (Node Version Manager)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# Auto-switch Node version based on .nvmrc
+autoload -U add-zsh-hook 2>/dev/null || true
+load-nvmrc() {
+  local nvmrc_path="$(nvm_find_nvmrc)"
+  if [ -n "$nvmrc_path" ]; then
+    local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
+    if [ "$nvmrc_node_version" = "N/A" ]; then
+      nvm install
+    elif [ "$nvmrc_node_version" != "$(nvm version)" ]; then
+      nvm use
+    fi
+  elif [ -n "$(PWD=$OLDPWD nvm_find_nvmrc)" ] && [ "$(nvm version)" != "$(nvm version default)" ]; then
+    echo "Reverting to nvm default version"
+    nvm use default
+  fi
+}
+type -t add-zsh-hook >/dev/null 2>&1 && add-zsh-hook chpwd load-nvmrc || true
+load-nvmrc 2>/dev/null || true
+
+# nvm aliases
+alias nvmi="nvm install"
+alias nvmu="nvm use"
+alias nvml="nvm list"
+alias nvmr="nvm run"
+alias nvme="nvm exec"
+alias nvmw="nvm which"
+alias nvmlts="nvm install --lts && nvm use --lts"
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "NVM_DIR" "$rc_file"; then
+                echo "$nvm_config" >> "$rc_file"
+                log_success "Added nvm config to $(basename $rc_file)"
+            else
+                log_info "nvm already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+install_node() {
+    log_info "Installing Node.js..."
+    
+    # Ensure nvm is loaded
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    
+    if ! command -v nvm &> /dev/null; then
+        log_warning "nvm command not found after installation"
+        log_info "Please restart your shell and run this script again"
+        exit 1
+    fi
+    
+    # Install latest LTS Node
+    log_info "Installing latest LTS Node.js..."
+    nvm install --lts
+    nvm use --lts
+    nvm alias default node
+    
+    NODE_VERSION=$(node --version)
+    NPM_VERSION=$(npm --version)
+    
+    log_success "Node.js $NODE_VERSION installed"
+    log_success "npm $NPM_VERSION installed"
+}
+
+install_global_packages() {
+    log_info "Installing essential global npm packages..."
+    
+    # Ensure npm is available
+    if ! command -v npm &> /dev/null; then
+        log_warning "npm not found, skipping global packages"
+        return 1
+    fi
+    
+    # Update npm itself
+    log_info "Updating npm..."
+    npm install -g npm@latest
+    
+    # Essential packages
+    local packages=(
+        "yarn"              # Alternative package manager
+        "pnpm"              # Fast, disk space efficient package manager
+        "typescript"        # TypeScript compiler
+        "ts-node"           # TypeScript execution
+        "@types/node"       # Node.js TypeScript definitions
+        "nodemon"           # Auto-restart on file changes
+        "prettier"          # Code formatter
+        "eslint"            # Linter
+        "npm-check-updates" # Update package.json dependencies
+        "npx"               # Execute npm packages
+        "serve"             # Static file server
+        "concurrently"      # Run multiple commands
+        "cross-env"         # Cross-platform env variables
+    )
+    
+    log_info "Installing global packages..."
+    for package in "${packages[@]}"; do
+        log_info "Installing $package..."
+        npm install -g "$package" || log_warning "Failed to install $package"
+    done
+    
+    log_success "Global npm packages installed"
+}
+
+setup_npm_config() {
+    log_info "Configuring npm..."
+    
+    # Set up npm init defaults
+    npm config set init-author-name "$(git config --global user.name 2>/dev/null || echo 'Your Name')"
+    npm config set init-author-email "$(git config --global user.email 2>/dev/null || echo 'you@example.com')"
+    npm config set init-license "MIT"
+    
+    # Better npm defaults
+    npm config set save-exact true  # Save exact versions
+    npm config set progress true     # Show progress bars
+    
+    log_success "npm configured"
+}
+
+create_nvmrc_template() {
+    log_info "Creating .nvmrc template..."
+    
+    # Get current LTS version
+    NODE_VERSION=$(node --version)
+    
+    # Create template directory
+    mkdir -p "$HOME/.config/node"
+    
+    # Create template .nvmrc
+    echo "$NODE_VERSION" > "$HOME/.config/node/nvmrc.template"
+    
+    log_info "Template .nvmrc created with $NODE_VERSION"
+}
+
+# Main installation
+main() {
+    log_info "Setting up Node.js with nvm..."
+    
+    install_nvm
+    setup_nvm_shell_integration
+    install_node
+    install_global_packages
+    setup_npm_config
+    create_nvmrc_template
+    
+    log_success "Node.js setup complete!"
+    echo
+    echo "Node.js $(node --version) is installed"
+    echo "npm $(npm --version) is installed"
+    echo
+    echo "nvm commands:"
+    echo "  nvm list              - List installed versions"
+    echo "  nvm install 18        - Install Node.js v18"
+    echo "  nvm use 18            - Switch to Node.js v18"
+    echo "  nvm alias default 18  - Set default version"
+    echo "  nvm install --lts     - Install latest LTS"
+    echo
+    echo "Global packages installed:"
+    echo "  yarn, pnpm, typescript, prettier, eslint, and more"
+    echo
+    echo "Note: Restart your shell or run 'source ~/.zshrc' to use nvm"
+}
+
+main "$@"
