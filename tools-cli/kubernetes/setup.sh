@@ -1,0 +1,492 @@
+#!/bin/bash
+# Kubernetes tools setup (kubectl, helm, k9s, etc.)
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+ARCH="$(uname -m)"
+
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="darwin"
+elif [[ "$OS" == "Linux" ]]; then
+    PLATFORM="linux"
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+# Detect architecture
+case "$ARCH" in
+    x86_64)
+        ARCH_K8S="amd64"
+        ;;
+    aarch64|arm64)
+        ARCH_K8S="arm64"
+        ;;
+    *)
+        log_warning "Unsupported architecture: $ARCH"
+        exit 1
+        ;;
+esac
+
+install_kubectl() {
+    log_info "Installing kubectl..."
+    
+    if command -v kubectl &> /dev/null; then
+        log_info "kubectl is already installed: $(kubectl version --client --short 2>/dev/null || kubectl version --client)"
+        return 0
+    fi
+    
+    # Get latest stable version
+    KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+    
+    log_info "Installing kubectl ${KUBECTL_VERSION}..."
+    
+    # Download kubectl
+    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${PLATFORM}/${ARCH_K8S}/kubectl"
+    
+    # Verify (optional but recommended)
+    curl -LO "https://dl.k8s.io/${KUBECTL_VERSION}/bin/${PLATFORM}/${ARCH_K8S}/kubectl.sha256"
+    
+    if [[ "$PLATFORM" == "darwin" ]]; then
+        # macOS doesn't have sha256sum, use shasum
+        echo "$(cat kubectl.sha256)  kubectl" | shasum -a 256 --check
+    else
+        echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+    fi
+    
+    # Install
+    chmod +x kubectl
+    sudo mv kubectl /usr/local/bin/
+    rm kubectl.sha256
+    
+    log_success "kubectl installed successfully"
+}
+
+install_helm() {
+    log_info "Installing Helm..."
+    
+    if command -v helm &> /dev/null; then
+        log_info "Helm is already installed: $(helm version --short)"
+        return 0
+    fi
+    
+    # Install via script
+    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    chmod 700 get_helm.sh
+    ./get_helm.sh
+    rm get_helm.sh
+    
+    log_success "Helm installed successfully"
+}
+
+install_k9s() {
+    log_info "Installing k9s (Kubernetes CLI UI)..."
+    
+    if command -v k9s &> /dev/null; then
+        log_info "k9s is already installed: $(k9s version --short)"
+        return 0
+    fi
+    
+    if [[ "$PLATFORM" == "darwin" ]] && command -v brew &> /dev/null; then
+        brew install k9s
+    else
+        # Get latest version
+        K9S_VERSION=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+        
+        if [[ -z "$K9S_VERSION" ]]; then
+            K9S_VERSION="0.28.0"  # Fallback version
+        fi
+        
+        # Download and install
+        curl -L -o k9s.tar.gz "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_${PLATFORM}_${ARCH_K8S}.tar.gz"
+        tar xzf k9s.tar.gz k9s
+        sudo mv k9s /usr/local/bin/
+        rm k9s.tar.gz
+    fi
+    
+    log_success "k9s installed successfully"
+}
+
+install_kubectx() {
+    log_info "Installing kubectx and kubens..."
+    
+    if command -v kubectx &> /dev/null; then
+        log_info "kubectx is already installed"
+        return 0
+    fi
+    
+    if [[ "$PLATFORM" == "darwin" ]] && command -v brew &> /dev/null; then
+        brew install kubectx
+    else
+        # Install from GitHub
+        sudo git clone https://github.com/ahmetb/kubectx /opt/kubectx
+        sudo ln -s /opt/kubectx/kubectx /usr/local/bin/kubectx
+        sudo ln -s /opt/kubectx/kubens /usr/local/bin/kubens
+    fi
+    
+    log_success "kubectx and kubens installed"
+}
+
+install_kustomize() {
+    log_info "Installing kustomize..."
+    
+    if command -v kustomize &> /dev/null; then
+        log_info "kustomize is already installed: $(kustomize version)"
+        return 0
+    fi
+    
+    # Install via script
+    curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+    sudo mv kustomize /usr/local/bin/
+    
+    log_success "kustomize installed"
+}
+
+install_stern() {
+    log_info "Installing stern (multi-pod log tailing)..."
+    
+    if command -v stern &> /dev/null; then
+        log_info "stern is already installed"
+        return 0
+    fi
+    
+    if [[ "$PLATFORM" == "darwin" ]] && command -v brew &> /dev/null; then
+        brew install stern
+    else
+        # Get latest version
+        STERN_VERSION=$(curl -s https://api.github.com/repos/stern/stern/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+        
+        # Download and install
+        curl -L -o stern.tar.gz "https://github.com/stern/stern/releases/download/v${STERN_VERSION}/stern_${STERN_VERSION}_${PLATFORM}_${ARCH_K8S}.tar.gz"
+        tar xzf stern.tar.gz stern
+        sudo mv stern /usr/local/bin/
+        rm stern.tar.gz
+    fi
+    
+    log_success "stern installed"
+}
+
+setup_kubectl_aliases() {
+    log_info "Setting up kubectl aliases..."
+    
+    local k8s_aliases='
+# Kubernetes aliases
+alias k="kubectl"
+alias kx="kubectx"
+alias kn="kubens"
+
+# kubectl get
+alias kg="kubectl get"
+alias kgp="kubectl get pods"
+alias kgpa="kubectl get pods --all-namespaces"
+alias kgd="kubectl get deployments"
+alias kgs="kubectl get services"
+alias kgi="kubectl get ingress"
+alias kgn="kubectl get nodes"
+alias kgns="kubectl get namespaces"
+alias kgcm="kubectl get configmap"
+alias kgsec="kubectl get secret"
+alias kgpv="kubectl get pv"
+alias kgpvc="kubectl get pvc"
+
+# kubectl describe
+alias kd="kubectl describe"
+alias kdp="kubectl describe pod"
+alias kdd="kubectl describe deployment"
+alias kds="kubectl describe service"
+alias kdi="kubectl describe ingress"
+alias kdn="kubectl describe node"
+
+# kubectl apply/delete
+alias ka="kubectl apply -f"
+alias kaf="kubectl apply -f"
+alias kdel="kubectl delete"
+alias kdelf="kubectl delete -f"
+
+# kubectl logs
+alias kl="kubectl logs"
+alias klf="kubectl logs -f"
+alias klt="kubectl logs --tail"
+
+# kubectl exec
+alias kex="kubectl exec -it"
+alias kexsh="kubectl exec -it -- /bin/sh"
+alias kexbash="kubectl exec -it -- /bin/bash"
+
+# kubectl edit
+alias ke="kubectl edit"
+alias ked="kubectl edit deployment"
+alias kes="kubectl edit service"
+alias kecm="kubectl edit configmap"
+
+# kubectl scale
+alias ksc="kubectl scale"
+alias kscd="kubectl scale deployment"
+
+# kubectl port-forward
+alias kpf="kubectl port-forward"
+
+# kubectl top
+alias ktop="kubectl top"
+alias ktopp="kubectl top pods"
+alias ktopn="kubectl top nodes"
+
+# Helm aliases
+alias h="helm"
+alias hi="helm install"
+alias hu="helm upgrade"
+alias hd="helm delete"
+alias hl="helm list"
+alias hs="helm search"
+alias hr="helm repo"
+alias hru="helm repo update"
+
+# k9s
+alias k9="k9s"
+
+# Useful functions
+kpods() {
+    # Get pods with node info
+    kubectl get pods -o wide ${1:+--namespace=$1}
+}
+
+kexec() {
+    # Exec into first pod matching pattern
+    local pod=$(kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 "$1")
+    if [[ -n "$pod" ]]; then
+        kubectl exec -it "$pod" -- ${2:-/bin/bash}
+    else
+        echo "No pod found matching: $1"
+    fi
+}
+
+klogs() {
+    # Get logs from first pod matching pattern
+    local pod=$(kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 "$1")
+    if [[ -n "$pod" ]]; then
+        kubectl logs -f "$pod"
+    else
+        echo "No pod found matching: $1"
+    fi
+}
+
+kcontext() {
+    # Switch context with fzf
+    kubectl config get-contexts -o name | fzf | xargs kubectl config use-context
+}
+
+knamespace() {
+    # Switch namespace with fzf
+    kubectl get namespaces -o name | cut -d/ -f2 | fzf | xargs kubectl config set-context --current --namespace=
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# Kubernetes aliases" "$rc_file"; then
+                echo "$k8s_aliases" >> "$rc_file"
+                log_success "Added Kubernetes aliases to $(basename $rc_file)"
+            else
+                log_info "Kubernetes aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+setup_kubectl_completion() {
+    log_info "Setting up kubectl completion..."
+    
+    # Zsh completion
+    if [[ -f "$HOME/.zshrc" ]]; then
+        if ! grep -q "kubectl completion zsh" "$HOME/.zshrc"; then
+            echo "" >> "$HOME/.zshrc"
+            echo "# kubectl completion" >> "$HOME/.zshrc"
+            echo "source <(kubectl completion zsh)" >> "$HOME/.zshrc"
+            echo "compdef k=kubectl" >> "$HOME/.zshrc"  # For alias
+            log_success "Added kubectl zsh completion"
+        fi
+    fi
+    
+    # Bash completion
+    if [[ -f "$HOME/.bashrc" ]]; then
+        if ! grep -q "kubectl completion bash" "$HOME/.bashrc"; then
+            echo "" >> "$HOME/.bashrc"
+            echo "# kubectl completion" >> "$HOME/.bashrc"
+            echo "source <(kubectl completion bash)" >> "$HOME/.bashrc"
+            echo "complete -o default -F __start_kubectl k" >> "$HOME/.bashrc"  # For alias
+            log_success "Added kubectl bash completion"
+        fi
+    fi
+}
+
+create_k8s_templates() {
+    log_info "Creating Kubernetes templates..."
+    
+    mkdir -p "$HOME/.config/kubernetes/templates"
+    
+    # Pod template
+    cat > "$HOME/.config/kubernetes/templates/pod.yaml" << 'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+  labels:
+    app: my-app
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+EOF
+    
+    # Deployment template
+    cat > "$HOME/.config/kubernetes/templates/deployment.yaml" << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+  labels:
+    app: my-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+EOF
+    
+    # Service template
+    cat > "$HOME/.config/kubernetes/templates/service.yaml" << 'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: my-app
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+EOF
+    
+    # Ingress template
+    cat > "$HOME/.config/kubernetes/templates/ingress.yaml" << 'EOF'
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: my-service
+            port:
+              number: 80
+EOF
+    
+    log_success "Kubernetes templates created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up Kubernetes tools..."
+    
+    install_kubectl
+    install_helm
+    install_k9s
+    install_kubectx
+    install_kustomize
+    install_stern
+    setup_kubectl_aliases
+    setup_kubectl_completion
+    create_k8s_templates
+    
+    log_success "Kubernetes tools setup complete!"
+    echo
+    echo "Installed tools:"
+    echo "  • kubectl - Kubernetes CLI"
+    echo "  • helm - Package manager"
+    echo "  • k9s - Terminal UI"
+    echo "  • kubectx/kubens - Context/namespace switcher"
+    echo "  • kustomize - Template-free configuration"
+    echo "  • stern - Multi-pod log tailing"
+    echo
+    echo "Quick commands:"
+    echo "  k get pods          - List pods (alias)"
+    echo "  k9s                 - Launch terminal UI"
+    echo "  kubectx             - Switch context"
+    echo "  kubens              - Switch namespace"
+    echo "  stern app           - Tail logs from all 'app' pods"
+    echo
+    echo "Templates available in ~/.config/kubernetes/templates/"
+    echo
+    echo "Note: Restart your shell to enable completions and aliases"
+}
+
+main "$@"

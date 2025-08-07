@@ -1,0 +1,563 @@
+#!/bin/bash
+# entr - File watcher and command runner setup
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_entr() {
+    log_info "Installing entr..."
+    
+    if command -v entr &> /dev/null; then
+        log_info "entr is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install entr
+            else
+                log_warning "Homebrew not found, please install entr manually"
+                exit 1
+            fi
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y entr
+            ;;
+        linux)
+            # Try to compile from source
+            log_info "Installing entr from source..."
+            cd /tmp
+            git clone https://github.com/eradman/entr.git
+            cd entr
+            ./configure
+            make
+            sudo make install
+            cd ..
+            rm -rf entr
+            ;;
+    esac
+    
+    log_success "entr installed"
+}
+
+install_watchman() {
+    log_info "Installing watchman (Facebook file watcher)..."
+    
+    if command -v watchman &> /dev/null; then
+        log_info "watchman is already installed: $(watchman --version)"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install watchman
+            else
+                log_warning "Homebrew not found, skipping watchman"
+            fi
+            ;;
+        debian|linux)
+            # Watchman installation is complex on Linux, skip for now
+            log_info "Watchman installation is complex on Linux, skipping..."
+            log_info "Visit https://facebook.github.io/watchman/docs/install for manual installation"
+            ;;
+    esac
+    
+    if command -v watchman &> /dev/null; then
+        log_success "watchman installed"
+    fi
+}
+
+install_fswatch() {
+    log_info "Installing fswatch..."
+    
+    if command -v fswatch &> /dev/null; then
+        log_info "fswatch is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install fswatch
+            else
+                log_warning "Homebrew not found, skipping fswatch"
+            fi
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y fswatch
+            ;;
+        linux)
+            log_info "fswatch may not be available, skipping..."
+            ;;
+    esac
+    
+    if command -v fswatch &> /dev/null; then
+        log_success "fswatch installed"
+    fi
+}
+
+setup_entr_aliases() {
+    log_info "Setting up entr aliases and functions..."
+    
+    local entr_aliases='
+# File watcher aliases and functions
+
+# Basic entr usage
+alias watch="entr"
+alias watchr="entr -r"  # Restart mode
+alias watchc="entr -c"  # Clear screen
+alias watchp="entr -p"  # Postpone first execution
+
+# Common watch patterns
+watch-run() {
+    # Watch files and run command
+    # Usage: watch-run "*.js" "npm test"
+    local pattern="$1"
+    shift
+    find . -name "$pattern" | entr -c "$@"
+}
+
+watch-test() {
+    # Watch and run tests
+    local pattern="${1:-*.test.*}"
+    shift
+    find . -name "$pattern" | entr -c "${@:-npm test}"
+}
+
+watch-build() {
+    # Watch and rebuild
+    find . -name "*.go" -o -name "*.js" -o -name "*.ts" -o -name "*.rs" | entr -c make build
+}
+
+watch-python() {
+    # Watch Python files and run
+    find . -name "*.py" | entr -rc python "${1:-main.py}"
+}
+
+watch-node() {
+    # Watch JS/TS files and restart node
+    find . -name "*.js" -o -name "*.ts" | entr -rc node "${1:-index.js}"
+}
+
+watch-go() {
+    # Watch Go files and run
+    find . -name "*.go" | entr -rc go run "${1:-.}"
+}
+
+watch-rust() {
+    # Watch Rust files and run
+    find . -name "*.rs" -o -name "Cargo.toml" | entr -rc cargo run
+}
+
+watch-make() {
+    # Watch and run make
+    find . -type f -not -path "*/\.*" | entr -c make "${1:-all}"
+}
+
+watch-docker() {
+    # Watch Dockerfile and rebuild
+    echo Dockerfile | entr -c docker build -t "${1:-app}" .
+}
+
+watch-compose() {
+    # Watch docker-compose and restart
+    find . -name "docker-compose*.yml" -o -name "Dockerfile" | entr -rc docker-compose up
+}
+
+watch-reload() {
+    # Watch and reload browser (requires browser-sync)
+    if command -v browser-sync &> /dev/null; then
+        browser-sync start --server --files "$1"
+    else
+        echo "browser-sync not installed"
+    fi
+}
+
+watch-sass() {
+    # Watch SASS/SCSS files
+    find . -name "*.scss" -o -name "*.sass" | entr -c sass "${1:-styles.scss}" "${2:-styles.css}"
+}
+
+watch-typescript() {
+    # Watch TypeScript files
+    find . -name "*.ts" -o -name "*.tsx" | entr -c tsc
+}
+
+watch-eslint() {
+    # Watch and lint JavaScript
+    find . -name "*.js" -o -name "*.jsx" | entr -c eslint .
+}
+
+watch-prettier() {
+    # Watch and format
+    find . -name "*.js" -o -name "*.ts" -o -name "*.json" | entr -c prettier --write .
+}
+
+watch-pytest() {
+    # Watch and run pytest
+    find . -name "*.py" | entr -c pytest "${@:--v}"
+}
+
+watch-rspec() {
+    # Watch and run RSpec
+    find . -name "*.rb" | entr -c rspec "${@}"
+}
+
+watch-cargo() {
+    # Watch and run cargo commands
+    find . -name "*.rs" -o -name "Cargo.toml" | entr -c cargo "${@:-test}"
+}
+
+watch-git() {
+    # Watch files and show git status
+    find . -type f -not -path "./.git/*" | entr -c git status
+}
+
+watch-sync() {
+    # Watch and sync to remote
+    find . -type f -not -path "./.git/*" | entr -c rsync -av . "${1:-user@host:/path}"
+}
+
+watch-notify() {
+    # Watch and send notification
+    # Requires terminal-notifier on macOS or notify-send on Linux
+    local pattern="$1"
+    local message="${2:-Files changed}"
+    
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v terminal-notifier &> /dev/null; then
+        find . -name "$pattern" | entr terminal-notifier -message "$message"
+    elif command -v notify-send &> /dev/null; then
+        find . -name "$pattern" | entr notify-send "File Watcher" "$message"
+    else
+        find . -name "$pattern" | entr echo "$message"
+    fi
+}
+
+# Advanced watch with multiple commands
+watch-chain() {
+    # Run multiple commands on file change
+    # Usage: watch-chain "*.js" "eslint ." "npm test" "npm build"
+    local pattern="$1"
+    shift
+    local commands="$@"
+    find . -name "$pattern" | entr -c sh -c "$commands"
+}
+
+# Watch with debounce (using sleep)
+watch-debounce() {
+    # Watch with debounce delay
+    local delay="${1:-1}"
+    local pattern="$2"
+    shift 2
+    find . -name "$pattern" | entr -c sh -c "sleep $delay && $@"
+}
+
+# Interactive file watcher menu
+watch-menu() {
+    echo "Select watch mode:"
+    echo "1) Watch and run tests"
+    echo "2) Watch and build"
+    echo "3) Watch and lint"
+    echo "4) Watch and restart server"
+    echo "5) Custom command"
+    
+    read -p "Choice: " choice
+    
+    case $choice in
+        1) watch-test ;;
+        2) watch-build ;;
+        3) watch-eslint ;;
+        4) watch-node ;;
+        5) 
+            read -p "Pattern: " pattern
+            read -p "Command: " cmd
+            find . -name "$pattern" | entr -c $cmd
+            ;;
+        *) echo "Invalid choice" ;;
+    esac
+}
+
+# fswatch aliases (if available)
+if command -v fswatch &> /dev/null; then
+    fswatch-run() {
+        # Watch directory with fswatch
+        fswatch -o "${1:-.}" | xargs -n1 -I{} "${@:2}"
+    }
+    
+    fswatch-recursive() {
+        # Recursive watch
+        fswatch -r "${1:-.}" | xargs -n1 -I{} echo "Changed: {}"
+    }
+fi
+
+# Watchman aliases (if available)
+if command -v watchman &> /dev/null; then
+    watchman-init() {
+        # Initialize watchman for current directory
+        watchman watch .
+    }
+    
+    watchman-trigger() {
+        # Create watchman trigger
+        local name="$1"
+        local pattern="$2"
+        shift 2
+        watchman -- trigger . "$name" "$pattern" -- "$@"
+    }
+fi
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# File watcher aliases" "$rc_file"; then
+                echo "$entr_aliases" >> "$rc_file"
+                log_success "Added entr aliases to $(basename $rc_file)"
+            else
+                log_info "entr aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+create_entr_examples() {
+    log_info "Creating entr example scripts..."
+    
+    mkdir -p "$HOME/.config/entr/examples"
+    
+    # Development workflow example
+    cat > "$HOME/.config/entr/examples/dev-workflow.sh" << 'EOF'
+#!/bin/bash
+# Development workflow with entr
+
+# Watch JavaScript files and run tests
+watch_tests() {
+    find . -name "*.js" -o -name "*.test.js" | entr -c npm test
+}
+
+# Watch source files and rebuild
+watch_build() {
+    find src -name "*.js" -o -name "*.jsx" | entr -c npm run build
+}
+
+# Watch and restart server
+watch_server() {
+    find . -name "*.js" -not -path "./node_modules/*" | entr -rc node server.js
+}
+
+# Watch SCSS and compile
+watch_styles() {
+    find . -name "*.scss" | entr -c npm run build:css
+}
+
+# Run all watchers in parallel
+if [[ "$1" == "all" ]]; then
+    watch_tests &
+    watch_build &
+    watch_styles &
+    watch_server
+else
+    echo "Usage: $0 [tests|build|server|styles|all]"
+fi
+EOF
+    chmod +x "$HOME/.config/entr/examples/dev-workflow.sh"
+    
+    # CI/CD pipeline watcher
+    cat > "$HOME/.config/entr/examples/ci-watcher.sh" << 'EOF'
+#!/bin/bash
+# Watch for changes and run CI pipeline
+
+# Configuration
+WATCH_DIR="${1:-.}"
+PIPELINE_SCRIPT="./scripts/ci.sh"
+
+echo "Watching $WATCH_DIR for changes..."
+
+# Watch all files except hidden and build directories
+find "$WATCH_DIR" -type f \
+    -not -path "*/\.*" \
+    -not -path "*/node_modules/*" \
+    -not -path "*/build/*" \
+    -not -path "*/dist/*" \
+    | entr -c sh -c '
+        echo "=========================================="
+        echo "Changes detected at $(date)"
+        echo "=========================================="
+        
+        # Run linter
+        echo "Running linter..."
+        npm run lint || exit 1
+        
+        # Run tests
+        echo "Running tests..."
+        npm test || exit 1
+        
+        # Build project
+        echo "Building project..."
+        npm run build || exit 1
+        
+        echo "=========================================="
+        echo "✅ All checks passed!"
+        echo "=========================================="
+    '
+EOF
+    chmod +x "$HOME/.config/entr/examples/ci-watcher.sh"
+    
+    # Documentation generator
+    cat > "$HOME/.config/entr/examples/doc-watcher.sh" << 'EOF'
+#!/bin/bash
+# Watch source files and regenerate documentation
+
+# Watch source files for documentation changes
+find . -name "*.js" -o -name "*.md" -o -name "*.yml" | entr -c sh -c '
+    echo "Regenerating documentation..."
+    
+    # Generate API docs
+    if command -v jsdoc &> /dev/null; then
+        jsdoc -c .jsdoc.json
+    fi
+    
+    # Generate markdown docs
+    if command -v doctoc &> /dev/null; then
+        doctoc README.md --github
+    fi
+    
+    # Build documentation site
+    if [[ -f "mkdocs.yml" ]] && command -v mkdocs &> /dev/null; then
+        mkdocs build
+    fi
+    
+    echo "Documentation updated!"
+'
+EOF
+    chmod +x "$HOME/.config/entr/examples/doc-watcher.sh"
+    
+    # Database migration watcher
+    cat > "$HOME/.config/entr/examples/migration-watcher.sh" << 'EOF'
+#!/bin/bash
+# Watch for new migrations and apply them
+
+MIGRATIONS_DIR="./migrations"
+DATABASE_URL="${DATABASE_URL:-postgresql://localhost/dev}"
+
+echo "Watching for new migrations in $MIGRATIONS_DIR"
+
+# Watch migration files
+find "$MIGRATIONS_DIR" -name "*.sql" | entr -p sh -c '
+    echo "New migration detected!"
+    
+    # Run migrations (example with different tools)
+    if command -v migrate &> /dev/null; then
+        migrate -path ./migrations -database "$DATABASE_URL" up
+    elif command -v flyway &> /dev/null; then
+        flyway migrate
+    elif command -v diesel &> /dev/null; then
+        diesel migration run
+    else
+        echo "No migration tool found"
+    fi
+    
+    echo "Migrations applied!"
+'
+EOF
+    chmod +x "$HOME/.config/entr/examples/migration-watcher.sh"
+    
+    # Multi-language project watcher
+    cat > "$HOME/.config/entr/examples/polyglot-watcher.sh" << 'EOF'
+#!/bin/bash
+# Watch files in a multi-language project
+
+# Python files
+find . -name "*.py" | entr -c python -m pytest &
+
+# JavaScript files
+find . -name "*.js" | entr -c npm test &
+
+# Go files
+find . -name "*.go" | entr -c go test ./... &
+
+# Rust files
+find . -name "*.rs" | entr -c cargo test &
+
+# Ruby files
+find . -name "*.rb" | entr -c rspec &
+
+wait
+EOF
+    chmod +x "$HOME/.config/entr/examples/polyglot-watcher.sh"
+    
+    log_success "entr examples created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up entr and file watching tools..."
+    
+    install_entr
+    install_watchman
+    install_fswatch
+    setup_entr_aliases
+    create_entr_examples
+    
+    log_success "File watcher setup complete!"
+    echo
+    echo "Installed tools:"
+    echo "  • entr - Run commands when files change"
+    if command -v watchman &> /dev/null; then
+        echo "  • watchman - Facebook's file watching service"
+    fi
+    if command -v fswatch &> /dev/null; then
+        echo "  • fswatch - Cross-platform file change monitor"
+    fi
+    echo
+    echo "Quick usage:"
+    echo "  find . -name '*.js' | entr -c npm test"
+    echo "  ls *.py | entr -rc python main.py"
+    echo "  echo file.txt | entr cat /_"
+    echo
+    echo "Aliases:"
+    echo "  watch-test     - Watch and run tests"
+    echo "  watch-build    - Watch and rebuild"
+    echo "  watch-python   - Watch Python files"
+    echo "  watch-node     - Watch Node.js files"
+    echo
+    echo "Examples available in ~/.config/entr/examples/"
+}
+
+main "$@"
