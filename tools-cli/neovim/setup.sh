@@ -1,0 +1,248 @@
+#!/bin/bash
+# Neovim setup script
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+check_dependencies() {
+    # Check for required dependencies
+    if ! command -v git &> /dev/null; then
+        log_error "git is required but not installed"
+        exit 1
+    fi
+    
+    if ! command -v curl &> /dev/null; then
+        log_error "curl is required but not installed"
+        exit 1
+    fi
+}
+
+install_neovim() {
+    log_info "Installing Neovim..."
+    
+    # Check if nvim exists and version
+    NEEDS_UPGRADE=false
+    if ! command -v nvim &> /dev/null; then
+        NEEDS_UPGRADE=true
+        log_info "Neovim not found, will install latest version"
+    else
+        CURRENT_VERSION=$(nvim --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+        MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+        MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+        if [[ $MAJOR -eq 0 ]] && [[ $MINOR -lt 10 ]]; then
+            NEEDS_UPGRADE=true
+            log_info "Current Neovim version $CURRENT_VERSION is less than 0.10, upgrading..."
+        else
+            log_info "Neovim $CURRENT_VERSION is already installed and up to date"
+            return 0
+        fi
+    fi
+    
+    if [[ "$NEEDS_UPGRADE" == "false" ]]; then
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install neovim
+            else
+                log_info "Installing via direct download..."
+                curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-macos.tar.gz
+                tar xzf nvim-macos.tar.gz
+                sudo mv nvim-macos /opt/nvim
+                sudo ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
+                rm nvim-macos.tar.gz
+            fi
+            ;;
+        debian)
+            # Check for jq (needed for GitHub API)
+            if ! command -v jq &> /dev/null; then
+                log_info "Installing jq (needed for installation)..."
+                sudo apt update
+                sudo apt install -y jq
+            fi
+            
+            log_info "Downloading latest Neovim from GitHub releases..."
+            
+            # Create temporary directory
+            TEMP_DIR=$(mktemp -d)
+            cd "$TEMP_DIR"
+            
+            # Get the latest release download URL
+            DOWNLOAD_URL=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | \
+                jq -r '.assets[] | select(.name == "nvim-linux64.tar.gz") | .browser_download_url')
+            
+            if [[ -z "$DOWNLOAD_URL" || "$DOWNLOAD_URL" == "null" ]]; then
+                # Fallback to AppImage if tarball not found
+                DOWNLOAD_URL=$(curl -s https://api.github.com/repos/neovim/neovim/releases/latest | \
+                    jq -r '.assets[] | select(.name == "nvim.appimage") | .browser_download_url')
+                
+                if [[ -z "$DOWNLOAD_URL" || "$DOWNLOAD_URL" == "null" ]]; then
+                    log_error "Failed to get Neovim download URL"
+                    exit 1
+                fi
+                
+                log_info "Downloading AppImage from: $DOWNLOAD_URL"
+                curl -L -o nvim.appimage "$DOWNLOAD_URL"
+                chmod u+x nvim.appimage
+                
+                # Extract the AppImage
+                ./nvim.appimage --appimage-extract
+                
+                # Move to /opt and create symlink
+                sudo rm -rf /opt/nvim
+                sudo mv squashfs-root /opt/nvim
+                sudo ln -sf /opt/nvim/AppRun /usr/local/bin/nvim
+            else
+                log_info "Downloading from: $DOWNLOAD_URL"
+                curl -L -o nvim-linux64.tar.gz "$DOWNLOAD_URL"
+                tar xzf nvim-linux64.tar.gz
+                sudo rm -rf /opt/nvim
+                sudo mv nvim-linux64 /opt/nvim
+                sudo ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
+            fi
+            
+            # Cleanup
+            cd - > /dev/null
+            rm -rf "$TEMP_DIR"
+            ;;
+        linux)
+            # Generic Linux - try to use package manager or AppImage
+            if command -v apt &> /dev/null; then
+                sudo apt update && sudo apt install -y neovim
+            elif command -v dnf &> /dev/null; then
+                sudo dnf install -y neovim
+            elif command -v pacman &> /dev/null; then
+                sudo pacman -S --noconfirm neovim
+            else
+                log_info "Installing via AppImage..."
+                curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim.appimage
+                chmod u+x nvim.appimage
+                sudo mv nvim.appimage /usr/local/bin/nvim
+            fi
+            ;;
+    esac
+    
+    log_success "Neovim installed: $(nvim --version | head -n1)"
+}
+
+setup_neovim_config() {
+    log_info "Setting up Neovim configuration..."
+    
+    # Get the directory where this script is located
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    
+    # Backup existing config if it exists
+    if [[ -d "$HOME/.config/nvim" ]]; then
+        backup_dir="$HOME/.config/nvim.backup.$(date +%Y%m%d_%H%M%S)"
+        log_warning "Backing up existing Neovim config to $backup_dir"
+        mv "$HOME/.config/nvim" "$backup_dir"
+    fi
+    
+    # Create config directory
+    mkdir -p "$HOME/.config"
+    
+    # Create symlink to our neovim config
+    ln -sf "$SCRIPT_DIR" "$HOME/.config/nvim"
+    log_success "Neovim configuration linked"
+}
+
+install_dependencies() {
+    log_info "Installing Neovim dependencies..."
+    
+    # Install ripgrep (for telescope)
+    if ! command -v rg &> /dev/null; then
+        log_info "Installing ripgrep..."
+        case "$PLATFORM" in
+            macos)
+                brew install ripgrep
+                ;;
+            debian)
+                sudo apt update && sudo apt install -y ripgrep
+                ;;
+            *)
+                log_warning "Please install ripgrep manually for full functionality"
+                ;;
+        esac
+    fi
+    
+    # Install fd (for telescope)
+    if ! command -v fd &> /dev/null && ! command -v fdfind &> /dev/null; then
+        log_info "Installing fd..."
+        case "$PLATFORM" in
+            macos)
+                brew install fd
+                ;;
+            debian)
+                sudo apt update && sudo apt install -y fd-find
+                # Create symlink for fd
+                mkdir -p "$HOME/.local/bin"
+                ln -sf $(which fdfind) "$HOME/.local/bin/fd" 2>/dev/null || true
+                ;;
+            *)
+                log_warning "Please install fd manually for full functionality"
+                ;;
+        esac
+    fi
+    
+    # Check for Node.js (for LSP servers)
+    if ! command -v node &> /dev/null; then
+        log_warning "Node.js not found - some LSP servers may not work"
+        log_info "Install Node.js for full LSP support"
+    fi
+}
+
+# Main installation
+main() {
+    log_info "Setting up Neovim..."
+    
+    check_dependencies
+    install_neovim
+    setup_neovim_config
+    install_dependencies
+    
+    log_success "Neovim setup complete!"
+    echo
+    echo "Run 'nvim' and wait for plugins to install automatically"
+    echo "Some language servers may need additional setup"
+}
+
+main "$@"

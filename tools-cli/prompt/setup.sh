@@ -1,0 +1,117 @@
+#!/bin/bash
+# Starship prompt setup script
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_starship() {
+    log_info "Installing Starship prompt..."
+    
+    if command -v starship &> /dev/null; then
+        log_info "Starship is already installed: $(starship --version)"
+        return 0
+    fi
+    
+    # Install via official installer script
+    curl -sS https://starship.rs/install.sh | sh -s -- --yes
+    
+    log_success "Starship installed successfully"
+}
+
+setup_starship_config() {
+    log_info "Setting up Starship configuration..."
+    
+    # Get the directory where this script is located
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    
+    # Create config directory
+    mkdir -p "$HOME/.config"
+    
+    # Backup existing config if it exists
+    if [[ -f "$HOME/.config/starship.toml" ]]; then
+        backup_file="$HOME/.config/starship.toml.backup.$(date +%Y%m%d_%H%M%S)"
+        log_warning "Backing up existing Starship config to $backup_file"
+        mv "$HOME/.config/starship.toml" "$backup_file"
+    fi
+    
+    # Create symlink to our starship config
+    ln -sf "$SCRIPT_DIR/starship.toml" "$HOME/.config/starship.toml"
+    log_success "Starship configuration linked"
+}
+
+configure_shell_integration() {
+    log_info "Configuring shell integration..."
+    
+    # Add to zshrc if not already there
+    if [[ -f "$HOME/.zshrc" ]]; then
+        if ! grep -q "eval \"\$(starship init zsh)\"" "$HOME/.zshrc"; then
+            echo "" >> "$HOME/.zshrc"
+            echo "# Starship prompt" >> "$HOME/.zshrc"
+            echo 'eval "$(starship init zsh)"' >> "$HOME/.zshrc"
+            log_success "Added Starship to .zshrc"
+        else
+            log_info "Starship already configured in .zshrc"
+        fi
+    fi
+    
+    # Add to bashrc if exists
+    if [[ -f "$HOME/.bashrc" ]]; then
+        if ! grep -q "eval \"\$(starship init bash)\"" "$HOME/.bashrc"; then
+            echo "" >> "$HOME/.bashrc"
+            echo "# Starship prompt" >> "$HOME/.bashrc"
+            echo 'eval "$(starship init bash)"' >> "$HOME/.bashrc"
+            log_success "Added Starship to .bashrc"
+        else
+            log_info "Starship already configured in .bashrc"
+        fi
+    fi
+}
+
+# Main installation
+main() {
+    log_info "Setting up Starship prompt..."
+    
+    install_starship
+    setup_starship_config
+    configure_shell_integration
+    
+    log_success "Starship setup complete!"
+    echo
+    echo "Starship is a fast, customizable prompt for any shell"
+    echo "Configuration: ~/.config/starship.toml"
+    echo "Restart your shell to see the new prompt"
+}
+
+main "$@"

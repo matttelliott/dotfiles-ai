@@ -1,0 +1,158 @@
+#!/bin/bash
+# tree setup script - directory structure visualizer
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_tree() {
+    log_info "Installing tree..."
+    
+    if command -v tree &> /dev/null; then
+        log_info "tree is already installed: $(tree --version 2>&1 | head -n1)"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install tree
+            else
+                log_warning "Homebrew not found, please install tree manually"
+                exit 1
+            fi
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y tree
+            ;;
+        linux)
+            # Generic Linux installation
+            if command -v apt &> /dev/null; then
+                sudo apt update && sudo apt install -y tree
+            elif command -v yum &> /dev/null; then
+                sudo yum install -y tree
+            elif command -v dnf &> /dev/null; then
+                sudo dnf install -y tree
+            elif command -v pacman &> /dev/null; then
+                sudo pacman -S --noconfirm tree
+            elif command -v apk &> /dev/null; then
+                sudo apk add tree
+            else
+                log_warning "Package manager not found, please install tree manually"
+                exit 1
+            fi
+            ;;
+    esac
+    
+    log_success "tree installed successfully"
+}
+
+setup_tree_config() {
+    log_info "Setting up tree configuration..."
+    
+    # Get the directory where this script is located
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    
+    # Create tree config file if we have one
+    if [[ -f "$SCRIPT_DIR/treerc" ]]; then
+        ln -sf "$SCRIPT_DIR/treerc" "$HOME/.treerc"
+        log_success "tree configuration linked"
+    fi
+    
+    # Add useful tree aliases to shell config
+    setup_aliases
+}
+
+setup_aliases() {
+    log_info "Setting up tree aliases..."
+    
+    # Define useful tree aliases
+    local aliases="
+# Tree aliases
+alias t='tree'
+alias t1='tree -L 1'
+alias t2='tree -L 2'
+alias t3='tree -L 3'
+alias ta='tree -a'
+alias td='tree -d'  # directories only
+alias tf='tree -f'  # full path
+alias tg='tree --gitignore'  # respect .gitignore
+alias ts='tree -h'  # show sizes in human readable
+alias tds='tree -d -h'  # directories with sizes
+"
+    
+    # Add to zshrc if it exists and aliases aren't already there
+    if [[ -f "$HOME/.zshrc" ]]; then
+        if ! grep -q "# Tree aliases" "$HOME/.zshrc"; then
+            echo "$aliases" >> "$HOME/.zshrc"
+            log_success "Added tree aliases to .zshrc"
+        else
+            log_info "Tree aliases already configured in .zshrc"
+        fi
+    fi
+    
+    # Add to bashrc if it exists
+    if [[ -f "$HOME/.bashrc" ]]; then
+        if ! grep -q "# Tree aliases" "$HOME/.bashrc"; then
+            echo "$aliases" >> "$HOME/.bashrc"
+            log_success "Added tree aliases to .bashrc"
+        else
+            log_info "Tree aliases already configured in .bashrc"
+        fi
+    fi
+}
+
+# Main installation
+main() {
+    log_info "Setting up tree..."
+    
+    install_tree
+    setup_tree_config
+    
+    log_success "tree setup complete!"
+    echo
+    echo "Useful tree commands:"
+    echo "  tree          - Show directory structure"
+    echo "  tree -L 2     - Limit depth to 2 levels"
+    echo "  tree -d       - Show directories only"
+    echo "  tree -a       - Show hidden files"
+    echo "  tree -h       - Show file sizes"
+    echo "  tree -I 'node_modules|.git' - Ignore patterns"
+    echo "  tree --gitignore - Respect .gitignore"
+    echo
+    echo "Aliases configured: t, t1, t2, t3, ta, td, tf, tg, ts, tds"
+}
+
+main "$@"

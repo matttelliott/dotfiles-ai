@@ -1,0 +1,130 @@
+#!/bin/bash
+# zsh setup script
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_zsh() {
+    log_info "Installing zsh..."
+    
+    if command -v zsh &> /dev/null; then
+        log_info "zsh is already installed: $(zsh --version)"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            # macOS comes with zsh
+            log_info "zsh is pre-installed on macOS"
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y zsh
+            ;;
+        linux)
+            # Generic Linux installation
+            if command -v apt &> /dev/null; then
+                sudo apt update && sudo apt install -y zsh
+            elif command -v yum &> /dev/null; then
+                sudo yum install -y zsh
+            elif command -v dnf &> /dev/null; then
+                sudo dnf install -y zsh
+            elif command -v pacman &> /dev/null; then
+                sudo pacman -S --noconfirm zsh
+            else
+                log_warning "Package manager not found, please install zsh manually"
+                exit 1
+            fi
+            ;;
+    esac
+    
+    log_success "zsh installed successfully"
+}
+
+setup_zsh_config() {
+    log_info "Setting up zsh configuration..."
+    
+    # Get the directory where this script is located
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    
+    # Backup existing config if it exists
+    if [[ -f "$HOME/.zshrc" ]]; then
+        backup_file="$HOME/.zshrc.backup.$(date +%Y%m%d_%H%M%S)"
+        log_warning "Backing up existing zshrc to $backup_file"
+        mv "$HOME/.zshrc" "$backup_file"
+    fi
+    
+    # Create symlink to our zsh config
+    ln -sf "$SCRIPT_DIR/zshrc" "$HOME/.zshrc"
+    log_success "zshrc configuration linked"
+}
+
+set_default_shell() {
+    log_info "Setting zsh as default shell..."
+    
+    current_shell=$(echo $SHELL)
+    zsh_path=$(which zsh)
+    
+    if [[ "$current_shell" == "$zsh_path" ]]; then
+        log_info "zsh is already the default shell"
+    else
+        log_info "Changing default shell to zsh..."
+        if [[ "$PLATFORM" == "macos" ]]; then
+            chsh -s "$zsh_path"
+        else
+            # On Linux, might need sudo
+            if ! chsh -s "$zsh_path" 2>/dev/null; then
+                log_warning "Could not change shell automatically. Run: chsh -s $zsh_path"
+            fi
+        fi
+        log_success "Default shell changed to zsh (restart terminal to take effect)"
+    fi
+}
+
+# Main installation
+main() {
+    log_info "Setting up zsh..."
+    
+    install_zsh
+    setup_zsh_config
+    set_default_shell
+    
+    log_success "zsh setup complete!"
+    echo
+    echo "Note: oh-my-zsh installation is handled separately by install-cli.sh"
+    echo "Restart your terminal or run 'source ~/.zshrc' to apply changes"
+}
+
+main "$@"
