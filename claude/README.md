@@ -6,6 +6,8 @@ This directory contains all Claude CLI setup and configuration files for AI-powe
 
 - `setup.sh` - Standalone Claude CLI installation script
 - `aliases.zsh` - Claude CLI aliases and helper functions for zsh
+- `personalities.zsh` - Claude personality modes for different tasks
+- `config/settings.json` - Shared Claude configuration and preferences
 - `README.md` - This documentation file
 
 ## Installation
@@ -32,6 +34,21 @@ claude auth
 
 ## Available Commands
 
+### Claude Personalities
+
+Different modes optimized for specific tasks (use tab completion after `claude-`):
+
+- `claude-coder` - Write production code (temp: 0.3)
+- `claude-architect` - Design systems and architecture (temp: 0.5)
+- `claude-reviewer` - Review code for issues (temp: 0.2)
+- `claude-teacher` - Explain concepts clearly (temp: 0.6)
+- `claude-creative` - Brainstorm creative solutions (temp: 0.9)
+- `claude-tester` - Write comprehensive tests (temp: 0.2)
+- `claude-debugger` - Find and fix bugs (temp: 0.1)
+- `claude-refactorer` - Improve code structure (temp: 0.4)
+- `claude-documenter` - Write documentation (temp: 0.5)
+- `claude-personalities` - List all available personalities
+
 ### Quick Aliases
 
 - `c` - Quick Claude access
@@ -50,6 +67,36 @@ claude auth
 - `cdebug <file>` - Get debugging assistance
 
 ## Usage Examples
+
+### Using Personalities
+
+```bash
+# Write production code with TDD
+claude-coder "implement a user authentication system"
+
+# Design architecture
+claude-architect "design a microservices architecture for an e-commerce platform"
+
+# Review code
+claude-reviewer "review this pull request for security issues"
+
+# Learn concepts
+claude-teacher "explain how async/await works in JavaScript"
+
+# Write tests
+claude-tester "write unit tests for this UserService class"
+
+# Debug issues
+claude-debugger "why is this function returning undefined?"
+
+# Refactor code
+claude-refactorer "improve this legacy code for better maintainability"
+
+# Document code
+claude-documenter "write API documentation for these endpoints"
+```
+
+### Using Helper Functions
 
 ```bash
 # Ask Claude a question

@@ -1,0 +1,99 @@
+{
+  "claude_settings": {
+    "description": "Shared Claude configuration across all machines",
+    "version": "1.0.0",
+    
+    "defaults": {
+      "model": "claude-opus-4",
+      "temperature": 0.7,
+      "max_tokens": 16384,
+      "response_style": "detailed",
+      "code_style": {
+        "comments": "standard",
+        "error_handling": "comprehensive",
+        "testing": "tdd_style",
+        "documentation": "docstrings"
+      }
+    },
+    
+    "personalities": {
+      "coder": {
+        "description": "Focused on code generation and debugging",
+        "temperature": 0.3,
+        "system_prompt": "You are an expert programmer. Be concise, write clean code, handle errors properly."
+      },
+      "architect": {
+        "description": "System design and architecture decisions",
+        "temperature": 0.5,
+        "system_prompt": "You are a senior software architect. Focus on scalability, maintainability, and best practices."
+      },
+      "reviewer": {
+        "description": "Code review and security analysis",
+        "temperature": 0.2,
+        "system_prompt": "You are a meticulous code reviewer. Find bugs, security issues, and suggest improvements."
+      },
+      "teacher": {
+        "description": "Explain concepts and teach",
+        "temperature": 0.6,
+        "system_prompt": "You are a patient teacher. Explain concepts clearly with examples."
+      },
+      "creative": {
+        "description": "Brainstorming and creative solutions",
+        "temperature": 0.9,
+        "system_prompt": "You are a creative problem solver. Think outside the box and suggest innovative solutions."
+      },
+      "tester": {
+        "description": "Writing comprehensive test suites",
+        "temperature": 0.2,
+        "system_prompt": "You are a QA engineer. Write comprehensive tests, think of edge cases, ensure full coverage."
+      },
+      "debugger": {
+        "description": "Finding and fixing bugs",
+        "temperature": 0.1,
+        "system_prompt": "You are a debugging expert. Systematically identify issues, trace execution, and fix bugs."
+      },
+      "refactorer": {
+        "description": "Improving code structure and quality",
+        "temperature": 0.4,
+        "system_prompt": "You are a refactoring specialist. Improve code readability, reduce complexity, and enhance maintainability."
+      },
+      "documenter": {
+        "description": "Writing clear documentation",
+        "temperature": 0.5,
+        "system_prompt": "You are a technical writer. Create clear, comprehensive documentation with examples."
+      }
+    },
+    
+    "project_types": {
+      "web": {
+        "languages": ["javascript", "typescript", "html", "css"],
+        "frameworks": ["react", "vue", "next", "express"],
+        "tools": ["webpack", "vite", "eslint", "prettier"]
+      },
+      "backend": {
+        "languages": ["python", "go", "rust", "java"],
+        "frameworks": ["fastapi", "gin", "actix", "spring"],
+        "tools": ["docker", "kubernetes", "terraform"]
+      },
+      "devops": {
+        "languages": ["bash", "python", "yaml"],
+        "tools": ["ansible", "terraform", "docker", "k8s", "ci/cd"]
+      },
+      "data": {
+        "languages": ["python", "r", "sql"],
+        "frameworks": ["pandas", "numpy", "pytorch", "tensorflow"],
+        "tools": ["jupyter", "dbt", "airflow"]
+      }
+    },
+    
+    "preferences": {
+      "generate_commit_messages": true,
+      "auto_commit": false,
+      "verify_before_commit": true,
+      "ask_before_long_running_commands": true,
+      "include_examples": true,
+      "explain_changes": false,
+      "git_style": "conventional"
+    }
+  }
+}

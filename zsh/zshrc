@@ -170,9 +170,17 @@ weather() {
 
 # Load Claude CLI aliases and functions if available
 # Check multiple possible locations for the Claude configuration
-for claude_config in "$HOME/.dotfiles/claude/aliases.zsh" "./claude/aliases.zsh" "$(dirname "${(%):-%N}")/claude/aliases.zsh"; do
+for claude_config in "$HOME/.dotfiles-ai/claude/aliases.zsh" "$HOME/.dotfiles/claude/aliases.zsh" "./claude/aliases.zsh" "$(dirname "${(%):-%N}")/claude/aliases.zsh"; do
     if [[ -f "$claude_config" ]]; then
         source "$claude_config"
+        break
+    fi
+done
+
+# Load Claude personalities if available
+for claude_personalities in "$HOME/.dotfiles-ai/claude/personalities.zsh" "$HOME/.dotfiles/claude/personalities.zsh" "./claude/personalities.zsh" "$(dirname "${(%):-%N}")/claude/personalities.zsh"; do
+    if [[ -f "$claude_personalities" ]]; then
+        source "$claude_personalities"
         break
     fi
 done
