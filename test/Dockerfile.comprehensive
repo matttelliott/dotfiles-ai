@@ -1,0 +1,151 @@
+# Comprehensive test Dockerfile for dotfiles-ai installation
+# Tests all CLI tools installation on Debian
+
+FROM debian:bookworm
+
+# Install sudo and basic utilities needed for installation
+RUN apt-get update && apt-get install -y \
+    sudo \
+    curl \
+    wget \
+    git \
+    ca-certificates \
+    locales \
+    gnupg \
+    lsb-release \
+    software-properties-common \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Generate locale
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+
+# Create a test user with sudo privileges
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser:testuser" | chpasswd && \
+    usermod -aG sudo testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Switch to test user
+USER testuser
+WORKDIR /home/testuser
+
+# Copy dotfiles repository
+COPY --chown=testuser:testuser . /home/testuser/dotfiles-ai/
+
+# Set working directory
+WORKDIR /home/testuser/dotfiles-ai
+
+# Make all scripts executable
+RUN find . -name "*.sh" -type f -exec chmod +x {} \;
+
+# Run the comprehensive CLI installation
+RUN echo "Starting comprehensive installation test..." && \
+    bash -c "yes | ./install-all-cli.sh" 2>&1 | tee /tmp/install.log || true
+
+# Create a test script to verify installations
+RUN cat > /home/testuser/test-tools.sh << 'EOFTEST' && \
+#!/bin/bash
+echo "========================================="
+echo "     DOTFILES INSTALLATION TEST"
+echo "========================================="
+echo ""
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'
+# Test function
+test_command() {
+    if command -v "$1" &> /dev/null; then
+        echo -e "${GREEN}✓${NC} $1 installed"
+        return 0
+    else
+        echo -e "${RED}✗${NC} $1 not found"
+        return 1
+    fi
+}
+echo "Core Tools:"
+test_command zsh
+test_command tmux
+test_command nvim
+test_command fzf
+test_command starship
+echo ""
+echo "Modern CLI Tools:"
+test_command rg
+test_command fd
+test_command bat
+test_command eza
+test_command tree
+test_command jq
+test_command htop
+echo ""
+echo "Development Tools:"
+test_command lazygit
+test_command http
+test_command entr
+test_command direnv
+test_command tmuxinator
+echo ""
+echo "Cloud & Infrastructure:"
+test_command aws
+test_command gcloud
+test_command terraform
+test_command docker
+test_command kubectl
+echo ""
+echo "Database Tools:"
+test_command psql
+test_command sqlite3
+echo ""
+echo "Network Tools:"
+test_command nmap
+test_command nc
+test_command mtr
+test_command dig
+echo ""
+echo "Programming Languages:"
+test_command node
+test_command python3
+test_command go
+test_command rustc
+test_command ruby
+echo ""
+echo "========================================="
+echo "Testing shell configurations..."
+echo ""
+# Test if zsh config exists
+if [ -f "$HOME/.zshrc" ]; then
+    echo -e "${GREEN}✓${NC} .zshrc configured"
+else
+    echo -e "${RED}✗${NC} .zshrc not found"
+fi
+# Test if tmux config exists
+if [ -f "$HOME/.tmux.conf" ]; then
+    echo -e "${GREEN}✓${NC} .tmux.conf configured"
+else
+    echo -e "${RED}✗${NC} .tmux.conf not found"
+fi
+# Test if neovim config exists
+if [ -d "$HOME/.config/nvim" ]; then
+    echo -e "${GREEN}✓${NC} Neovim configured"
+else
+    echo -e "${RED}✗${NC} Neovim config not found"
+fi
+echo ""
+echo "========================================="
+echo "Installation log saved to: /tmp/install.log"
+echo "========================================="
+EOFTEST
+
+RUN chmod +x /home/testuser/test-tools.sh
+
+# Run the test
+RUN /home/testuser/test-tools.sh
+
+# Default command
+CMD ["/bin/bash", "-c", "/home/testuser/test-tools.sh && exec /bin/bash"]

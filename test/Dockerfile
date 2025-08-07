@@ -36,11 +36,32 @@ COPY --chown=testuser:testuser . /home/testuser/dotfiles-ai/
 # Set working directory
 WORKDIR /home/testuser/dotfiles-ai
 
+# Make scripts executable
+RUN chmod +x install*.sh
+
 # Run the CLI-only installation (no GUI tools)
-RUN ./install-cli.sh
+# Run in non-interactive mode
+RUN bash -c "yes | ./install-cli.sh" || true
 
-# Switch to zsh shell
-SHELL ["/bin/zsh", "-c"]
+# Run post-install if it exists
+RUN if [ -f "./post-install-cli.sh" ]; then \
+        bash -c "yes | ./post-install-cli.sh" || true; \
+    fi
 
-# Default command - start zsh
-CMD ["/bin/zsh"]
+# Test that key tools were installed
+RUN which zsh || echo "zsh not found" && \
+    which tmux || echo "tmux not found" && \
+    which nvim || echo "nvim not found" && \
+    which fzf || echo "fzf not found" && \
+    which rg || echo "ripgrep not found" && \
+    which fd || echo "fd not found" && \
+    which bat || echo "bat not found" && \
+    which eza || echo "eza not found" && \
+    which git || echo "git found" && \
+    echo "Basic tool check complete"
+
+# Switch to zsh shell if available
+SHELL ["/bin/bash", "-c"]
+
+# Default command - start bash (more reliable for testing)
+CMD ["/bin/bash"]

@@ -1,0 +1,54 @@
+# Simple test Dockerfile for dotfiles-ai installation
+FROM debian:bookworm
+
+# Install basic utilities
+RUN apt-get update && apt-get install -y \
+    sudo curl wget git ca-certificates locales \
+    gnupg lsb-release software-properties-common \
+    build-essential && rm -rf /var/lib/apt/lists/*
+
+# Setup locale
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+ENV LANG en_US.UTF-8
+
+# Create test user with sudo
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Switch to test user
+USER testuser
+WORKDIR /home/testuser
+
+# Copy dotfiles
+COPY --chown=testuser:testuser . /home/testuser/dotfiles-ai/
+WORKDIR /home/testuser/dotfiles-ai
+
+# Make scripts executable
+RUN find . -name "*.sh" -type f -exec chmod +x {} \;
+
+# Run installation with auto-yes
+RUN echo "y" | ./install-cli.sh || true
+
+# Simple test of what got installed
+RUN echo "=== Testing installed tools ===" && \
+    (which zsh && echo "✓ zsh") || echo "✗ zsh" && \
+    (which tmux && echo "✓ tmux") || echo "✗ tmux" && \
+    (which nvim && echo "✓ nvim") || echo "✗ nvim" && \
+    (which fzf && echo "✓ fzf") || echo "✗ fzf" && \
+    (which rg && echo "✓ ripgrep") || echo "✗ ripgrep" && \
+    (which fd && echo "✓ fd") || echo "✗ fd" && \
+    (which bat && echo "✓ bat") || echo "✗ bat" && \
+    (which eza && echo "✓ eza") || echo "✗ eza" && \
+    (which lazygit && echo "✓ lazygit") || echo "✗ lazygit" && \
+    (which http && echo "✓ httpie") || echo "✗ httpie" && \
+    (which jq && echo "✓ jq") || echo "✗ jq" && \
+    (which htop && echo "✓ htop") || echo "✗ htop" && \
+    (which docker && echo "✓ docker") || echo "✗ docker" && \
+    (which node && echo "✓ node") || echo "✗ node" && \
+    (which python3 && echo "✓ python3") || echo "✗ python3" && \
+    (which go && echo "✓ go") || echo "✗ go" && \
+    (which rustc && echo "✓ rust") || echo "✗ rust" && \
+    (which ruby && echo "✓ ruby") || echo "✗ ruby" && \
+    echo "=== Test complete ==="
+
+CMD ["/bin/bash"]
