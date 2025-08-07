@@ -1,0 +1,635 @@
+#!/bin/bash
+# direnv - Project-specific environment variables setup
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_direnv() {
+    log_info "Installing direnv..."
+    
+    if command -v direnv &> /dev/null; then
+        log_info "direnv is already installed: $(direnv version)"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install direnv
+            else
+                # Binary installation
+                curl -sfL https://direnv.net/install.sh | bash
+            fi
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y direnv
+            ;;
+        linux)
+            # Binary installation for other Linux
+            curl -sfL https://direnv.net/install.sh | bash
+            ;;
+    esac
+    
+    log_success "direnv installed"
+}
+
+setup_shell_hook() {
+    log_info "Setting up direnv shell hook..."
+    
+    # Bash setup
+    if [[ -f "$HOME/.bashrc" ]]; then
+        if ! grep -q 'eval "$(direnv hook bash)"' "$HOME/.bashrc"; then
+            echo '' >> "$HOME/.bashrc"
+            echo '# direnv hook' >> "$HOME/.bashrc"
+            echo 'eval "$(direnv hook bash)"' >> "$HOME/.bashrc"
+            log_success "Added direnv hook to .bashrc"
+        else
+            log_info "direnv hook already in .bashrc"
+        fi
+    fi
+    
+    # Zsh setup
+    if [[ -f "$HOME/.zshrc" ]]; then
+        if ! grep -q 'eval "$(direnv hook zsh)"' "$HOME/.zshrc"; then
+            echo '' >> "$HOME/.zshrc"
+            echo '# direnv hook' >> "$HOME/.zshrc"
+            echo 'eval "$(direnv hook zsh)"' >> "$HOME/.zshrc"
+            log_success "Added direnv hook to .zshrc"
+        else
+            log_info "direnv hook already in .zshrc"
+        fi
+    fi
+}
+
+setup_direnv_config() {
+    log_info "Setting up direnv configuration..."
+    
+    # Create config directory
+    mkdir -p "$HOME/.config/direnv"
+    
+    # Create direnvrc for custom functions
+    cat > "$HOME/.config/direnv/direnvrc" << 'EOF'
+# direnv configuration file
+# Custom functions for .envrc files
+
+# Load Python virtualenv
+layout_python() {
+    local python=${1:-python3}
+    [[ $# -gt 0 ]] && shift
+    unset PYTHONHOME
+    if [[ -n $VIRTUAL_ENV ]]; then
+        VIRTUAL_ENV=$(realpath "${VIRTUAL_ENV}")
+    else
+        local python_version
+        python_version=$("$python" -c "import sys; print('.'.join(str(x) for x in sys.version_info[:2]))")
+        if [[ -z $python_version ]]; then
+            log_error "Could not determine Python version"
+            return 1
+        fi
+        VIRTUAL_ENV=$PWD/.direnv/python-$python_version
+    fi
+    export VIRTUAL_ENV
+    if [[ ! -d $VIRTUAL_ENV ]]; then
+        log_status "Creating virtualenv ..."
+        "$python" -m venv "$VIRTUAL_ENV"
+    fi
+    PATH="${VIRTUAL_ENV}/bin:${PATH}"
+    export PATH
+}
+
+# Load Python with pyenv
+layout_pyenv() {
+    unset PYENV_VERSION
+    local pyenv_python=${1:-python}
+    
+    # Find .python-version file
+    local python_version
+    if [[ -f .python-version ]]; then
+        python_version=$(cat .python-version)
+    else
+        python_version=$(pyenv version-name)
+    fi
+    
+    if [[ -n $python_version ]]; then
+        local pyenv_prefix=$(pyenv prefix "$python_version")
+        VIRTUAL_ENV="${PWD}/.direnv/python-${python_version}"
+        
+        if [[ ! -d $VIRTUAL_ENV ]]; then
+            "${pyenv_prefix}/bin/python" -m venv "$VIRTUAL_ENV"
+        fi
+        
+        PATH="${VIRTUAL_ENV}/bin:${PATH}"
+        export VIRTUAL_ENV PATH
+    fi
+}
+
+# Load Node.js with nvm
+layout_nvm() {
+    local node_version=${1}
+    
+    if [[ -f .nvmrc && -z $node_version ]]; then
+        node_version=$(cat .nvmrc)
+    fi
+    
+    if [[ -n $node_version ]]; then
+        nvm use "$node_version"
+    fi
+}
+
+# Load Ruby with rbenv
+layout_rbenv() {
+    local ruby_version=${1}
+    
+    if [[ -f .ruby-version && -z $ruby_version ]]; then
+        ruby_version=$(cat .ruby-version)
+    fi
+    
+    if [[ -n $ruby_version ]]; then
+        rbenv local "$ruby_version"
+    fi
+}
+
+# Load Go modules
+layout_go() {
+    export GOPATH="$PWD/.direnv/go"
+    PATH="$GOPATH/bin:$PATH"
+}
+
+# Load Rust/Cargo
+layout_rust() {
+    export CARGO_HOME="$PWD/.direnv/cargo"
+    export RUSTUP_HOME="$PWD/.direnv/rustup"
+    PATH="$CARGO_HOME/bin:$PATH"
+}
+
+# Docker environment
+layout_docker() {
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
+}
+
+# AWS profile
+use_aws() {
+    local profile=${1:-default}
+    export AWS_PROFILE="$profile"
+    log_status "Using AWS profile: $profile"
+}
+
+# Google Cloud project
+use_gcp() {
+    local project=${1}
+    if [[ -n $project ]]; then
+        export CLOUDSDK_CORE_PROJECT="$project"
+        log_status "Using GCP project: $project"
+    fi
+}
+
+# Kubernetes context
+use_k8s() {
+    local context=${1}
+    if [[ -n $context ]]; then
+        export KUBECONFIG="$PWD/.kube/config"
+        kubectl config use-context "$context"
+        log_status "Using k8s context: $context"
+    fi
+}
+
+# Load .env file
+dotenv() {
+    local env_file=${1:-.env}
+    if [[ -f $env_file ]]; then
+        set -a
+        source "$env_file"
+        set +a
+        log_status "Loaded $env_file"
+    fi
+}
+
+# Load .env if exists
+dotenv_if_exists() {
+    local env_file=${1:-.env}
+    if [[ -f $env_file ]]; then
+        dotenv "$env_file"
+    fi
+}
+
+# Strict mode for .envrc
+strict_env() {
+    set -euo pipefail
+    IFS=$'\n\t'
+}
+
+# Check required commands
+require() {
+    for cmd in "$@"; do
+        if ! command -v "$cmd" &> /dev/null; then
+            log_error "Required command not found: $cmd"
+            return 1
+        fi
+    done
+}
+
+# Check required environment variables
+require_env() {
+    for var in "$@"; do
+        if [[ -z ${!var:-} ]]; then
+            log_error "Required environment variable not set: $var"
+            return 1
+        fi
+    done
+}
+
+# Watch additional files for changes
+watch_file() {
+    for file in "$@"; do
+        if [[ -f $file ]]; then
+            watch_file "$file"
+        fi
+    done
+}
+EOF
+    
+    log_success "direnv configuration created"
+}
+
+setup_direnv_aliases() {
+    log_info "Setting up direnv aliases..."
+    
+    local direnv_aliases='
+# direnv aliases
+alias da="direnv allow"
+alias db="direnv block"
+alias dr="direnv reload"
+alias de="direnv edit"
+alias ds="direnv status"
+alias dp="direnv prune"
+
+# direnv helper functions
+direnv-init() {
+    # Initialize .envrc in current directory
+    if [[ -f .envrc ]]; then
+        echo ".envrc already exists"
+        return 1
+    fi
+    
+    echo "# direnv configuration" > .envrc
+    echo "# https://direnv.net/man/direnv-stdlib.1.html" >> .envrc
+    echo "" >> .envrc
+    echo "# Load .env file if it exists" >> .envrc
+    echo "dotenv_if_exists" >> .envrc
+    echo "" >> .envrc
+    echo "# Project-specific configuration" >> .envrc
+    echo "export PROJECT_NAME=\"$(basename $PWD)\"" >> .envrc
+    
+    direnv allow
+    echo "Created and allowed .envrc"
+}
+
+direnv-python() {
+    # Create Python layout
+    echo "layout python" >> .envrc
+    direnv allow
+}
+
+direnv-node() {
+    # Create Node.js layout
+    echo "layout node" >> .envrc
+    direnv allow
+}
+
+direnv-go() {
+    # Create Go layout
+    echo "layout go" >> .envrc
+    direnv allow
+}
+
+direnv-docker() {
+    # Setup Docker environment
+    cat >> .envrc << '\''ENVRC'\''
+# Docker environment
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+export COMPOSE_PROJECT_NAME="$(basename $PWD)"
+ENVRC
+    direnv allow
+}
+
+direnv-aws() {
+    # Setup AWS profile
+    local profile="${1:-default}"
+    echo "use_aws $profile" >> .envrc
+    direnv allow
+}
+
+direnv-secrets() {
+    # Create .env template for secrets
+    if [[ ! -f .env ]]; then
+        cat > .env << '\''ENV'\''
+# Environment variables
+# Copy to .env.local and fill in values
+
+DATABASE_URL=postgresql://user:pass@localhost/dbname
+REDIS_URL=redis://localhost:6379
+SECRET_KEY=change-me
+API_KEY=
+ENV
+        echo "Created .env template"
+    fi
+    
+    if [[ ! -f .env.local ]]; then
+        cp .env .env.local
+        echo "Created .env.local - add your secrets here"
+    fi
+    
+    echo "dotenv_if_exists .env.local" >> .envrc
+    echo ".env.local" >> .gitignore
+    direnv allow
+}
+
+direnv-clean() {
+    # Clean direnv cache
+    rm -rf .direnv
+    direnv reload
+    echo "Cleaned direnv cache"
+}
+
+direnv-debug() {
+    # Debug current environment
+    direnv status
+    echo ""
+    echo "Loaded variables:"
+    direnv export bash | jq -r '\''keys[]'\''
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# direnv aliases" "$rc_file"; then
+                echo "$direnv_aliases" >> "$rc_file"
+                log_success "Added direnv aliases to $(basename $rc_file)"
+            else
+                log_info "direnv aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+create_direnv_templates() {
+    log_info "Creating direnv templates..."
+    
+    mkdir -p "$HOME/.config/direnv/templates"
+    
+    # Python project template
+    cat > "$HOME/.config/direnv/templates/python.envrc" << 'EOF'
+# Python project
+layout python
+
+# Or with pyenv:
+# layout pyenv 3.11
+
+# Activate additional tools
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONUNBUFFERED=1
+
+# Project-specific settings
+export PROJECT_NAME="$(basename $PWD)"
+export ENVIRONMENT="development"
+
+# Load secrets from .env.local
+dotenv_if_exists .env.local
+
+# Required commands
+require python3 pip
+
+# Auto-install requirements
+if [[ -f requirements.txt ]]; then
+    pip install -q -r requirements.txt
+fi
+EOF
+    
+    # Node.js project template
+    cat > "$HOME/.config/direnv/templates/node.envrc" << 'EOF'
+# Node.js project
+layout node
+
+# Or with nvm:
+# layout nvm 18
+
+# Project settings
+export NODE_ENV="${NODE_ENV:-development}"
+export PROJECT_NAME="$(basename $PWD)"
+
+# Load secrets
+dotenv_if_exists .env.local
+
+# Required commands
+require node npm
+
+# Auto-install dependencies
+if [[ -f package.json ]] && [[ ! -d node_modules ]]; then
+    npm install
+fi
+
+# Add node_modules/.bin to PATH
+PATH_add node_modules/.bin
+EOF
+    
+    # Go project template
+    cat > "$HOME/.config/direnv/templates/go.envrc" << 'EOF'
+# Go project
+layout go
+
+# Go settings
+export GO111MODULE=on
+export GOFLAGS="-mod=vendor"
+
+# Project settings
+export PROJECT_NAME="$(basename $PWD)"
+
+# Load secrets
+dotenv_if_exists .env.local
+
+# Required commands
+require go
+
+# Download dependencies
+if [[ -f go.mod ]] && [[ ! -d vendor ]]; then
+    go mod download
+    go mod vendor
+fi
+EOF
+    
+    # Rust project template
+    cat > "$HOME/.config/direnv/templates/rust.envrc" << 'EOF'
+# Rust project
+layout rust
+
+# Rust settings
+export RUST_BACKTRACE=1
+export RUST_LOG="${RUST_LOG:-debug}"
+
+# Project settings
+export PROJECT_NAME="$(basename $PWD)"
+
+# Load secrets
+dotenv_if_exists .env.local
+
+# Required commands
+require cargo rustc
+EOF
+    
+    # Docker project template
+    cat > "$HOME/.config/direnv/templates/docker.envrc" << 'EOF'
+# Docker project
+layout_docker
+
+# Docker settings
+export COMPOSE_PROJECT_NAME="$(basename $PWD)"
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Load secrets
+dotenv_if_exists .env.local
+
+# Required commands
+require docker docker-compose
+
+# Optional: Start services
+# docker-compose up -d
+EOF
+    
+    # Kubernetes project template
+    cat > "$HOME/.config/direnv/templates/kubernetes.envrc" << 'EOF'
+# Kubernetes project
+export KUBECONFIG="$PWD/.kube/config"
+
+# Set namespace
+export NAMESPACE="${NAMESPACE:-default}"
+
+# Helm settings
+export HELM_NAMESPACE="$NAMESPACE"
+
+# Load secrets
+dotenv_if_exists .env.local
+
+# Required commands
+require kubectl helm
+
+# Set context if specified
+if [[ -n "${K8S_CONTEXT:-}" ]]; then
+    kubectl config use-context "$K8S_CONTEXT"
+fi
+EOF
+    
+    # Multi-language project template
+    cat > "$HOME/.config/direnv/templates/multi.envrc" << 'EOF'
+# Multi-language project
+strict_env
+
+# Python
+if [[ -f requirements.txt ]] || [[ -f setup.py ]]; then
+    layout python
+fi
+
+# Node.js
+if [[ -f package.json ]]; then
+    PATH_add node_modules/.bin
+fi
+
+# Go
+if [[ -f go.mod ]]; then
+    export GOPATH="$PWD/.direnv/go"
+    PATH_add "$GOPATH/bin"
+fi
+
+# Ruby
+if [[ -f Gemfile ]]; then
+    export GEM_HOME="$PWD/.direnv/gems"
+    PATH_add "$GEM_HOME/bin"
+fi
+
+# Project settings
+export PROJECT_NAME="$(basename $PWD)"
+export ENVIRONMENT="${ENVIRONMENT:-development}"
+
+# Load all .env files
+dotenv_if_exists .env
+dotenv_if_exists .env.local
+dotenv_if_exists ".env.$ENVIRONMENT"
+
+# Watch for changes
+watch_file .env .env.local
+EOF
+    
+    log_success "direnv templates created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up direnv..."
+    
+    install_direnv
+    setup_shell_hook
+    setup_direnv_config
+    setup_direnv_aliases
+    create_direnv_templates
+    
+    log_success "direnv setup complete!"
+    echo
+    echo "direnv is ready!"
+    echo
+    echo "Quick start:"
+    echo "  1. cd to your project directory"
+    echo "  2. Create .envrc file:"
+    echo "     echo 'export MY_VAR=value' > .envrc"
+    echo "  3. Allow the file:"
+    echo "     direnv allow"
+    echo
+    echo "Helper commands:"
+    echo "  direnv-init      - Initialize .envrc"
+    echo "  direnv-python    - Setup Python project"
+    echo "  direnv-node      - Setup Node.js project"
+    echo "  direnv-go        - Setup Go project"
+    echo "  direnv-docker    - Setup Docker project"
+    echo "  direnv-secrets   - Setup .env files"
+    echo
+    echo "Templates in ~/.config/direnv/templates/"
+    echo
+    echo "Note: Restart your shell or run: eval \"\$(direnv hook bash/zsh)\""
+}
+
+main "$@"

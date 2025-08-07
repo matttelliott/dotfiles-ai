@@ -1,0 +1,455 @@
+#!/bin/bash
+# Tmuxinator - tmux session manager setup
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Check if tmux is installed
+check_tmux() {
+    if ! command -v tmux &> /dev/null; then
+        log_warning "tmux is not installed. Please install tmux first."
+        exit 1
+    fi
+}
+
+# Check if Ruby is available
+check_ruby() {
+    if ! command -v ruby &> /dev/null && ! command -v rbenv &> /dev/null; then
+        log_warning "Ruby is not installed. Installing tmuxinator requires Ruby."
+        log_info "Please run ./tools-lang/ruby/setup.sh first"
+        exit 1
+    fi
+}
+
+install_tmuxinator() {
+    log_info "Installing tmuxinator..."
+    
+    if command -v tmuxinator &> /dev/null; then
+        log_info "tmuxinator is already installed: $(tmuxinator version)"
+        return 0
+    fi
+    
+    # Install via gem
+    if command -v gem &> /dev/null; then
+        gem install tmuxinator
+        
+        # If using rbenv, rehash
+        if command -v rbenv &> /dev/null; then
+            rbenv rehash
+        fi
+    else
+        log_warning "gem not found. Please ensure Ruby is properly installed."
+        exit 1
+    fi
+    
+    log_success "tmuxinator installed"
+}
+
+setup_tmuxinator_completion() {
+    log_info "Setting up tmuxinator completion..."
+    
+    # Download completion scripts
+    local completion_dir="$HOME/.tmuxinator/completion"
+    mkdir -p "$completion_dir"
+    
+    # Bash completion
+    if [[ -f "$HOME/.bashrc" ]]; then
+        curl -o "$completion_dir/tmuxinator.bash" \
+            https://raw.githubusercontent.com/tmuxinator/tmuxinator/master/completion/tmuxinator.bash 2>/dev/null || true
+        
+        if [[ -f "$completion_dir/tmuxinator.bash" ]]; then
+            if ! grep -q "tmuxinator.bash" "$HOME/.bashrc"; then
+                echo "source $completion_dir/tmuxinator.bash" >> "$HOME/.bashrc"
+                log_success "Added bash completion"
+            fi
+        fi
+    fi
+    
+    # Zsh completion
+    if [[ -f "$HOME/.zshrc" ]]; then
+        curl -o "$completion_dir/tmuxinator.zsh" \
+            https://raw.githubusercontent.com/tmuxinator/tmuxinator/master/completion/tmuxinator.zsh 2>/dev/null || true
+        
+        if [[ -f "$completion_dir/tmuxinator.zsh" ]]; then
+            if ! grep -q "tmuxinator.zsh" "$HOME/.zshrc"; then
+                echo "source $completion_dir/tmuxinator.zsh" >> "$HOME/.zshrc"
+                log_success "Added zsh completion"
+            fi
+        fi
+    fi
+}
+
+setup_tmuxinator_aliases() {
+    log_info "Setting up tmuxinator aliases..."
+    
+    local tmuxinator_aliases='
+# Tmuxinator aliases
+alias mux="tmuxinator"
+alias muxn="tmuxinator new"
+alias muxo="tmuxinator open"
+alias muxs="tmuxinator start"
+alias muxst="tmuxinator stop"
+alias muxe="tmuxinator edit"
+alias muxc="tmuxinator copy"
+alias muxd="tmuxinator delete"
+alias muxl="tmuxinator list"
+alias muxi="tmuxinator implode"
+alias muxv="tmuxinator version"
+alias muxdoc="tmuxinator doctor"
+
+# Tmuxinator functions
+mux-create() {
+    # Create new project
+    local name="${1:-project}"
+    tmuxinator new "$name"
+}
+
+mux-start() {
+    # Start or attach to project
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    tmuxinator start "$name"
+}
+
+mux-edit() {
+    # Edit project config
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    tmuxinator edit "$name"
+}
+
+mux-delete() {
+    # Delete project with confirmation
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    read -p "Delete project $name? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        tmuxinator delete "$name"
+    fi
+}
+
+mux-debug() {
+    # Debug project configuration
+    local name="${1}"
+    tmuxinator debug "$name"
+}
+
+# Quick session functions
+dev-session() {
+    # Start development session
+    if tmuxinator list | grep -q "dev"; then
+        tmuxinator start dev
+    else
+        echo "Creating dev session template..."
+        tmuxinator new dev
+    fi
+}
+
+work-session() {
+    # Start work session
+    if tmuxinator list | grep -q "work"; then
+        tmuxinator start work
+    else
+        echo "Creating work session template..."
+        tmuxinator new work
+    fi
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# Tmuxinator aliases" "$rc_file"; then
+                echo "$tmuxinator_aliases" >> "$rc_file"
+                log_success "Added tmuxinator aliases to $(basename $rc_file)"
+            else
+                log_info "Tmuxinator aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+create_tmuxinator_templates() {
+    log_info "Creating tmuxinator project templates..."
+    
+    local tmux_config_dir="$HOME/.config/tmuxinator"
+    mkdir -p "$tmux_config_dir"
+    
+    # Development project template
+    cat > "$tmux_config_dir/dev.yml" << 'EOF'
+# ~/.config/tmuxinator/dev.yml
+name: dev
+root: ~/Projects
+
+# Optional tmux socket
+# socket_name: foo
+
+# Runs before everything
+# pre: sudo /etc/rc.d/mysqld start
+
+# Project hooks
+# on_project_start: command
+# on_project_first_start: command
+# on_project_restart: command
+# on_project_exit: command
+# on_project_stop: command
+
+# Runs in each window and pane
+# pre_window: rbenv shell 2.0.0-p247
+
+# Pass command line options to tmux
+# tmux_options: -f ~/.tmux.mac.conf
+
+# Change the command to call tmux
+# tmux_command: byobu
+
+# Specifies (by name or index) which window will be selected on project startup
+# startup_window: editor
+
+# Specifies (by index) which pane of the specified window will be selected on project startup
+# startup_pane: 1
+
+# Controls whether the tmux session should be attached to automatically
+# attach: false
+
+windows:
+  - editor:
+      layout: main-vertical
+      panes:
+        - vim
+        - guard
+  - server: bundle exec rails s
+  - logs: tail -f log/development.log
+  - console: rails c
+  - git:
+      layout: main-horizontal
+      panes:
+        - git status
+        - tig
+EOF
+    
+    # Full stack project template
+    cat > "$tmux_config_dir/fullstack.yml" << 'EOF'
+# ~/.config/tmuxinator/fullstack.yml
+name: fullstack
+root: <%= ENV["PWD"] %>
+
+windows:
+  - frontend:
+      layout: main-horizontal
+      panes:
+        - npm run dev
+        - npm run test:watch
+  - backend:
+      layout: main-horizontal
+      panes:
+        - npm run server
+        - npm run test:backend
+  - database:
+      layout: even-horizontal
+      panes:
+        - # Database console
+        - # Redis monitor
+  - docker:
+      layout: even-horizontal
+      panes:
+        - docker-compose logs -f
+        - lazydocker
+  - git:
+      layout: main-horizontal
+      panes:
+        - lazygit
+        - git status
+EOF
+    
+    # Python project template
+    cat > "$tmux_config_dir/python.yml" << 'EOF'
+# ~/.config/tmuxinator/python.yml
+name: python
+root: <%= ENV["PWD"] %>
+
+pre_window: source venv/bin/activate
+
+windows:
+  - editor:
+      layout: main-vertical
+      panes:
+        - nvim
+        - ipython
+  - server:
+      panes:
+        - python app.py
+  - tests:
+      layout: even-horizontal
+      panes:
+        - pytest --watch
+        - coverage run -m pytest
+  - shell:
+      panes:
+        - # Shell
+  - logs:
+      panes:
+        - tail -f app.log
+EOF
+    
+    # Go project template
+    cat > "$tmux_config_dir/go.yml" << 'EOF'
+# ~/.config/tmuxinator/go.yml
+name: go
+root: <%= ENV["PWD"] %>
+
+windows:
+  - editor:
+      layout: main-vertical
+      panes:
+        - nvim
+        - # Shell for running
+  - tests:
+      layout: even-horizontal
+      panes:
+        - go test -v ./...
+        - golangci-lint run --watch
+  - build:
+      panes:
+        - air # Auto-reload server
+  - debug:
+      panes:
+        - # Delve debugger
+EOF
+    
+    # Data science template
+    cat > "$tmux_config_dir/datascience.yml" << 'EOF'
+# ~/.config/tmuxinator/datascience.yml
+name: datascience
+root: <%= ENV["PWD"] %>
+
+pre_window: conda activate myenv
+
+windows:
+  - jupyter:
+      panes:
+        - jupyter lab
+  - editor:
+      layout: main-vertical
+      panes:
+        - nvim
+        - ipython
+  - tensorboard:
+      panes:
+        - tensorboard --logdir logs
+  - data:
+      layout: even-horizontal
+      panes:
+        - # Data exploration
+        - # Database console
+  - train:
+      panes:
+        - # Training script
+EOF
+    
+    # Simple template
+    cat > "$tmux_config_dir/simple.yml" << 'EOF'
+# ~/.config/tmuxinator/simple.yml
+name: <%= args[0] || "project" %>
+root: <%= ENV["PWD"] %>
+
+windows:
+  - editor: nvim
+  - shell: # Empty
+  - server: # Empty
+  - logs: # Empty
+EOF
+    
+    log_success "Tmuxinator templates created"
+}
+
+setup_environment() {
+    log_info "Setting up tmuxinator environment..."
+    
+    # Set default editor if not set
+    if [[ -z "$EDITOR" ]]; then
+        for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+            if [[ -f "$rc_file" ]]; then
+                if ! grep -q "export EDITOR" "$rc_file"; then
+                    echo "export EDITOR='nvim'" >> "$rc_file"
+                fi
+            fi
+        done
+    fi
+    
+    # Create config directory
+    mkdir -p "$HOME/.config/tmuxinator"
+    
+    # Symlink old location if needed
+    if [[ ! -e "$HOME/.tmuxinator" ]]; then
+        ln -s "$HOME/.config/tmuxinator" "$HOME/.tmuxinator"
+    fi
+}
+
+# Main installation
+main() {
+    log_info "Setting up tmuxinator..."
+    
+    check_tmux
+    check_ruby
+    install_tmuxinator
+    setup_tmuxinator_completion
+    setup_tmuxinator_aliases
+    setup_environment
+    create_tmuxinator_templates
+    
+    log_success "Tmuxinator setup complete!"
+    echo
+    echo "Tmuxinator is ready!"
+    echo
+    echo "Quick commands:"
+    echo "  mux new <project>    - Create new project"
+    echo "  mux start <project>  - Start project session"
+    echo "  mux list            - List all projects"
+    echo "  mux edit <project>   - Edit project config"
+    echo "  mux delete <project> - Delete project"
+    echo
+    echo "Templates available in ~/.config/tmuxinator/:"
+    echo "  • dev.yml - Development environment"
+    echo "  • fullstack.yml - Full stack project"
+    echo "  • python.yml - Python project"
+    echo "  • go.yml - Go project"
+    echo "  • datascience.yml - Data science project"
+    echo "  • simple.yml - Simple template"
+    echo
+    echo "Try: mux new myproject"
+    echo
+    echo "Note: Restart your shell or source your RC file for aliases"
+}
+
+main "$@"

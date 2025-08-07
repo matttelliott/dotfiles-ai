@@ -57,27 +57,48 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Track what gets installed
+INSTALLED_TOOLS=()
+FAILED_TOOLS=()
+
+# Function to run setup scripts
+run_setup() {
+    local tool_name="$1"
+    local setup_script="$2"
+    
+    if [[ -f "$setup_script" ]]; then
+        log_info "Installing $tool_name..."
+        if bash "$setup_script"; then
+            INSTALLED_TOOLS+=("$tool_name")
+            log_success "$tool_name installed successfully"
+        else
+            FAILED_TOOLS+=("$tool_name")
+            log_error "Failed to install $tool_name"
+        fi
+    else
+        log_warning "Setup script not found: $setup_script"
+        FAILED_TOOLS+=("$tool_name")
+    fi
+    echo
+}
+
 # Install GUI applications
 install_gui_apps() {
     log_info "Installing GUI applications for $OS..."
     
     case $OS in
         macos)
-            # Install GUI apps via Homebrew Cask
+            # Use modular setup scripts for GUI tools
+            run_setup "Browsers" "./tools-gui/browsers/setup.sh"
+            run_setup "VS Code" "./tools-gui/vscode/setup.sh"
+            
+            # Additional GUI tools can still be installed directly
             if command_exists brew; then
-                log_info "Installing browsers..."
-                brew install --cask firefox || log_warning "Firefox already installed or failed"
-                brew install --cask google-chrome || log_warning "Chrome already installed or failed"
-                
                 log_info "Installing database tools..."
                 brew install --cask dbeaver-community || log_warning "DBeaver already installed or failed"
                 
-                log_info "Installing development tools..."
+                log_info "Installing Docker Desktop..."
                 brew install --cask docker || log_warning "Docker Desktop already installed or failed"
-                
-                # Optional GUI apps
-                # brew install --cask obsidian || log_warning "Obsidian already installed or failed"
-                # brew install --cask spotify || log_warning "Spotify already installed or failed"
             else
                 log_error "Homebrew not found. Please install Homebrew first."
                 exit 1
@@ -104,6 +125,18 @@ install_gui_apps() {
                 sudo apt install -y google-chrome-stable
             else
                 log_info "Google Chrome already installed"
+            fi
+            
+            # VS Code
+            if ! command_exists code; then
+                log_info "Installing VS Code..."
+                wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+                sudo install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
+                sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
+                sudo apt update
+                sudo apt install -y code
+            else
+                log_info "VS Code already installed"
             fi
             
             log_info "Installing database tools..."
@@ -180,13 +213,35 @@ main() {
     install_gui_apps
     install_1password_gui
     
+    echo
+    echo "======================================="
+    echo
+    
+    if [[ ${#INSTALLED_TOOLS[@]} -gt 0 ]]; then
+        log_success "Successfully installed:"
+        for tool in "${INSTALLED_TOOLS[@]}"; do
+            echo "  ✓ $tool"
+        done
+        echo
+    fi
+    
+    if [[ ${#FAILED_TOOLS[@]} -gt 0 ]]; then
+        log_error "Failed to install:"
+        for tool in "${FAILED_TOOLS[@]}"; do
+            echo "  ✗ $tool"
+        done
+        echo
+        log_info "Check the output above for error details"
+        echo
+    fi
+    
     log_success "GUI installation complete!"
     log_info ""
-    log_info "Installed applications:"
-    log_info "  • Firefox - Web browser"
-    log_info "  • Google Chrome - Web browser"
+    log_info "Installed applications may include:"
+    log_info "  • Web Browsers (Chrome, Firefox, Brave, etc.)"
+    log_info "  • VS Code - Code editor"
     log_info "  • DBeaver - Database management"
-    log_info "  • Docker Desktop - Container management (macOS)"
+    log_info "  • Docker Desktop - Container management"
     log_info "  • 1Password - Password management"
     log_info ""
     log_info "Run 'post-install-gui.sh' to configure GUI applications"
