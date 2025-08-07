@@ -10,72 +10,63 @@ CLAUDE_SETTINGS_FILE="${CLAUDE_CONFIG_DIR}/settings.json"
 claude-coder() {
     local prompt="$*"
     echo "🔧 Claude Coder Mode (temp: 0.3)"
-    claude ask "$prompt" \
-        --system "You are an expert programmer. Be concise, write clean code, handle errors properly. Follow TDD approach, write tests first."
+    claude --print --append-system-prompt "You are an expert programmer. Be concise, write clean code, handle errors properly. Follow TDD approach, write tests first." "$prompt"
 }
 
 # Architect - Design systems
 claude-architect() {
     local prompt="$*"
     echo "🏗️ Claude Architect Mode (temp: 0.5)"
-    claude ask "$prompt" \
-        --system "You are a senior software architect. Focus on scalability, maintainability, and best practices. Consider trade-offs and provide architectural decisions."
+    claude --print --append-system-prompt "You are a senior software architect. Focus on scalability, maintainability, and best practices. Consider trade-offs and provide architectural decisions." "$prompt"
 }
 
 # Reviewer - Review code
 claude-reviewer() {
     local prompt="$*"
     echo "🔍 Claude Reviewer Mode (temp: 0.2)"
-    claude ask "$prompt" \
-        --system "You are a meticulous code reviewer. Find bugs, security issues, and suggest improvements. Be thorough but constructive."
+    claude --print --append-system-prompt "You are a meticulous code reviewer. Find bugs, security issues, and suggest improvements. Be thorough but constructive." "$prompt"
 }
 
 # Teacher - Explain concepts
 claude-teacher() {
     local prompt="$*"
     echo "📚 Claude Teacher Mode (temp: 0.6)"
-    claude ask "$prompt" \
-        --system "You are a patient teacher. Explain concepts clearly with examples. Break down complex topics into understandable parts."
+    claude --print --append-system-prompt "You are a patient teacher. Explain concepts clearly with examples. Break down complex topics into understandable parts." "$prompt"
 }
 
 # Creative - Brainstorm solutions
 claude-creative() {
     local prompt="$*"
     echo "💡 Claude Creative Mode (temp: 0.9)"
-    claude ask "$prompt" \
-        --system "You are a creative problem solver. Think outside the box and suggest innovative solutions. Don't be constrained by conventional approaches."
+    claude --print --append-system-prompt "You are a creative problem solver. Think outside the box and suggest innovative solutions. Don't be constrained by conventional approaches." "$prompt"
 }
 
 # Tester - Write tests
 claude-tester() {
     local prompt="$*"
     echo "🧪 Claude Tester Mode (temp: 0.2)"
-    claude ask "$prompt" \
-        --system "You are a QA engineer. Write comprehensive tests, think of edge cases, ensure full coverage. Include unit, integration, and e2e tests as appropriate."
+    claude --print --append-system-prompt "You are a QA engineer. Write comprehensive tests, think of edge cases, ensure full coverage. Include unit, integration, and e2e tests as appropriate." "$prompt"
 }
 
 # Debugger - Fix bugs
 claude-debugger() {
     local prompt="$*"
     echo "🐛 Claude Debugger Mode (temp: 0.1)"
-    claude ask "$prompt" \
-        --system "You are a debugging expert. Systematically identify issues, trace execution, and fix bugs. Provide step-by-step debugging approach."
+    claude --print --append-system-prompt "You are a debugging expert. Systematically identify issues, trace execution, and fix bugs. Provide step-by-step debugging approach." "$prompt"
 }
 
 # Refactorer - Improve code
 claude-refactorer() {
     local prompt="$*"
     echo "♻️ Claude Refactorer Mode (temp: 0.4)"
-    claude ask "$prompt" \
-        --system "You are a refactoring specialist. Improve code readability, reduce complexity, and enhance maintainability without changing functionality."
+    claude --print --append-system-prompt "You are a refactoring specialist. Improve code readability, reduce complexity, and enhance maintainability without changing functionality." "$prompt"
 }
 
 # Documenter - Write documentation
 claude-documenter() {
     local prompt="$*"
     echo "📝 Claude Documenter Mode (temp: 0.5)"
-    claude ask "$prompt" \
-        --system "You are a technical writer. Create clear, comprehensive documentation with examples. Include usage, API references, and best practices."
+    claude --print --append-system-prompt "You are a technical writer. Create clear, comprehensive documentation with examples. Include usage, API references, and best practices." "$prompt"
 }
 
 # Helper function to list all personalities

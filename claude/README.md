@@ -7,7 +7,7 @@ This directory contains all Claude CLI setup and configuration files for AI-powe
 - `setup.sh` - Standalone Claude CLI installation script
 - `aliases.zsh` - Claude CLI aliases and helper functions for zsh
 - `personalities.zsh` - Claude personality modes for different tasks
-- `config/settings.json` - Shared Claude configuration and preferences
+- `GLOBAL_CLAUDE.md` - Global rules that Claude follows in all projects
 - `README.md` - This documentation file
 
 ## Installation

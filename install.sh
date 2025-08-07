@@ -135,6 +135,15 @@ create_symlinks() {
     fi
     ln -sf "$PWD/zsh/zshrc" "$HOME/.zshrc"
     log_success "zsh config linked"
+    
+    # Claude global rules
+    mkdir -p "$HOME/.claude"
+    if [[ -f "$HOME/.claude/CLAUDE.md" ]]; then
+        log_warning "Backing up existing Claude rules to $backup_dir"
+        cp "$HOME/.claude/CLAUDE.md" "$backup_dir/CLAUDE_GLOBAL.md"
+    fi
+    ln -sf "$PWD/claude/GLOBAL_CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+    log_success "Claude global rules installed"
 }
 
 # Main installation function
