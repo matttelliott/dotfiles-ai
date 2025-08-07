@@ -1,0 +1,646 @@
+#!/bin/bash
+# Google Cloud CLI and related tools setup
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS and architecture
+OS="$(uname)"
+ARCH="$(uname -m)"
+
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="darwin"
+elif [[ "$OS" == "Linux" ]]; then
+    PLATFORM="linux"
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+# Detect architecture for GCP
+case "$ARCH" in
+    x86_64)
+        ARCH_GCP="x86_64"
+        ;;
+    arm64|aarch64)
+        ARCH_GCP="arm"
+        ;;
+    *)
+        log_warning "Unsupported architecture: $ARCH"
+        exit 1
+        ;;
+esac
+
+install_gcloud_cli() {
+    log_info "Installing Google Cloud CLI..."
+    
+    if command -v gcloud &> /dev/null; then
+        log_info "gcloud is already installed: $(gcloud version | head -n1)"
+        return 0
+    fi
+    
+    # Download and install
+    cd /tmp
+    curl -O "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-${ARCH_GCP}.tar.gz"
+    tar -xf "google-cloud-cli-linux-${ARCH_GCP}.tar.gz"
+    
+    # Install to home directory
+    mv google-cloud-sdk "$HOME/"
+    
+    # Run install script
+    "$HOME/google-cloud-sdk/install.sh" \
+        --quiet \
+        --usage-reporting false \
+        --path-update true \
+        --command-completion true
+    
+    # Clean up
+    rm -f "google-cloud-cli-linux-${ARCH_GCP}.tar.gz"
+    
+    log_success "Google Cloud CLI installed"
+}
+
+install_gcloud_components() {
+    log_info "Installing additional gcloud components..."
+    
+    # Source gcloud path
+    if [[ -f "$HOME/google-cloud-sdk/path.bash.inc" ]]; then
+        source "$HOME/google-cloud-sdk/path.bash.inc"
+    fi
+    
+    # Install common components
+    "$HOME/google-cloud-sdk/bin/gcloud" components install \
+        kubectl \
+        gke-gcloud-auth-plugin \
+        cloud-build-local \
+        cloud-firestore-emulator \
+        cloud-datastore-emulator \
+        pubsub-emulator \
+        app-engine-python \
+        --quiet 2>/dev/null || true
+    
+    log_success "gcloud components installed"
+}
+
+install_gsutil() {
+    log_info "Checking gsutil..."
+    
+    # gsutil comes with gcloud SDK
+    if [[ -f "$HOME/google-cloud-sdk/bin/gsutil" ]]; then
+        log_info "gsutil is available with gcloud SDK"
+    else
+        log_warning "gsutil not found in gcloud SDK"
+    fi
+}
+
+install_cloud_sql_proxy() {
+    log_info "Installing Cloud SQL Proxy..."
+    
+    if command -v cloud-sql-proxy &> /dev/null || command -v cloud_sql_proxy &> /dev/null; then
+        log_info "Cloud SQL Proxy is already installed"
+        return 0
+    fi
+    
+    # Download Cloud SQL Proxy
+    case "$PLATFORM-$ARCH_GCP" in
+        darwin-x86_64)
+            curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.6.1/cloud-sql-proxy.darwin.amd64
+            ;;
+        darwin-arm)
+            curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.6.1/cloud-sql-proxy.darwin.arm64
+            ;;
+        linux-x86_64)
+            curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.6.1/cloud-sql-proxy.linux.amd64
+            ;;
+        linux-arm)
+            curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.6.1/cloud-sql-proxy.linux.arm64
+            ;;
+    esac
+    
+    chmod +x cloud-sql-proxy
+    sudo mv cloud-sql-proxy /usr/local/bin/
+    
+    log_success "Cloud SQL Proxy installed"
+}
+
+install_terraform() {
+    log_info "Installing Terraform..."
+    
+    if command -v terraform &> /dev/null; then
+        log_info "Terraform is already installed: $(terraform version | head -n1)"
+        return 0
+    fi
+    
+    # Get latest version
+    TERRAFORM_VERSION=$(curl -s https://api.github.com/repos/hashicorp/terraform/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    
+    if [[ -z "$TERRAFORM_VERSION" ]]; then
+        TERRAFORM_VERSION="1.6.6"  # Fallback version
+    fi
+    
+    # Download and install
+    case "$PLATFORM-$ARCH_GCP" in
+        darwin-x86_64)
+            TERRAFORM_ARCH="darwin_amd64"
+            ;;
+        darwin-arm)
+            TERRAFORM_ARCH="darwin_arm64"
+            ;;
+        linux-x86_64)
+            TERRAFORM_ARCH="linux_amd64"
+            ;;
+        linux-arm)
+            TERRAFORM_ARCH="linux_arm64"
+            ;;
+    esac
+    
+    curl -LO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${TERRAFORM_ARCH}.zip"
+    unzip -q "terraform_${TERRAFORM_VERSION}_${TERRAFORM_ARCH}.zip"
+    sudo mv terraform /usr/local/bin/
+    rm "terraform_${TERRAFORM_VERSION}_${TERRAFORM_ARCH}.zip"
+    
+    log_success "Terraform installed"
+}
+
+setup_gcloud_config() {
+    log_info "Setting up Google Cloud configuration..."
+    
+    # Create config directory
+    mkdir -p "$HOME/.config/gcloud"
+    
+    # Create sample configurations
+    cat > "$HOME/.config/gcloud/configurations/config_default" << 'EOF'
+[core]
+account = 
+project = 
+disable_usage_reporting = True
+
+[compute]
+zone = us-central1-a
+region = us-central1
+EOF
+    
+    log_success "Google Cloud configuration created"
+}
+
+setup_gcloud_aliases() {
+    log_info "Setting up Google Cloud aliases..."
+    
+    local gcloud_aliases='
+# Google Cloud aliases
+alias gc="gcloud"
+alias gcl="gcloud config list"
+alias gcp="gcloud config set project"
+alias gcauth="gcloud auth login"
+alias gcconf="gcloud config configurations"
+
+# Compute Engine
+alias gce="gcloud compute"
+alias gcels="gcloud compute instances list"
+alias gcestart="gcloud compute instances start"
+alias gcestop="gcloud compute instances stop"
+alias gcessh="gcloud compute ssh"
+alias gcedisks="gcloud compute disks list"
+
+# Container/Kubernetes
+alias gke="gcloud container"
+alias gkels="gcloud container clusters list"
+alias gkeget="gcloud container clusters get-credentials"
+
+# Cloud Storage
+alias gcs="gsutil"
+alias gcsls="gsutil ls"
+alias gcscp="gsutil cp"
+alias gcsmv="gsutil mv"
+alias gcsrm="gsutil rm"
+alias gcsrsync="gsutil rsync"
+alias gcsmb="gsutil mb"  # make bucket
+alias gcsrb="gsutil rb"  # remove bucket
+
+# Cloud Functions
+alias gcf="gcloud functions"
+alias gcfls="gcloud functions list"
+alias gcfdeploy="gcloud functions deploy"
+alias gcflogs="gcloud functions logs read"
+
+# Cloud Run
+alias gcr="gcloud run"
+alias gcrls="gcloud run services list"
+alias gcrdeploy="gcloud run deploy"
+
+# App Engine
+alias gae="gcloud app"
+alias gaedeploy="gcloud app deploy"
+alias gaelogs="gcloud app logs tail"
+alias gaebrowse="gcloud app browse"
+
+# BigQuery
+alias bq="bq"
+alias bqls="bq ls"
+alias bqquery="bq query"
+
+# Pub/Sub
+alias gpub="gcloud pubsub"
+alias gpubtopics="gcloud pubsub topics list"
+alias gpubsubs="gcloud pubsub subscriptions list"
+
+# IAM
+alias giam="gcloud iam"
+alias giamls="gcloud iam service-accounts list"
+alias giamroles="gcloud iam roles list"
+
+# Projects
+alias gprojects="gcloud projects list"
+alias gproject="gcloud config get-value project"
+
+# Billing
+alias gbilling="gcloud billing"
+alias gbillingls="gcloud billing accounts list"
+
+# Functions
+gcpset() {
+    # Set project
+    gcloud config set project "$1"
+    echo "Project set to: $1"
+}
+
+gcpactivate() {
+    # Activate service account
+    gcloud auth activate-service-account --key-file="$1"
+}
+
+gceconnect() {
+    # SSH to instance
+    gcloud compute ssh "$1" --zone="${2:-us-central1-a}"
+}
+
+gcetunnel() {
+    # Create SSH tunnel
+    local instance="$1"
+    local port="${2:-8080}"
+    gcloud compute ssh "$instance" -- -L "$port:localhost:$port"
+}
+
+gkelogs() {
+    # Get GKE cluster logs
+    local cluster="$1"
+    gcloud container clusters get-credentials "$cluster"
+    kubectl logs -f "$2"
+}
+
+gcscopy() {
+    # Copy between buckets
+    gsutil -m cp -r "gs://$1/*" "gs://$2/"
+}
+
+gcssize() {
+    # Get bucket size
+    gsutil du -sh "gs://$1"
+}
+
+gcost() {
+    # Get cost estimate for current month
+    local project="${1:-$(gcloud config get-value project)}"
+    gcloud billing budgets list --billing-account="$(gcloud billing accounts list --format='\''value(name)'\'' --limit=1)"
+}
+
+gservices() {
+    # List enabled services
+    gcloud services list --enabled
+}
+
+genable() {
+    # Enable API service
+    gcloud services enable "$1"
+}
+
+gdisable() {
+    # Disable API service
+    gcloud services disable "$1"
+}
+
+# Terraform shortcuts
+alias tf="terraform"
+alias tfi="terraform init"
+alias tfp="terraform plan"
+alias tfa="terraform apply"
+alias tfd="terraform destroy"
+alias tfv="terraform validate"
+alias tff="terraform fmt"
+
+# Cloud SQL Proxy
+sqlproxy() {
+    # Start Cloud SQL proxy
+    cloud-sql-proxy "$1" &
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            # Add gcloud path
+            if ! grep -q "google-cloud-sdk" "$rc_file"; then
+                echo "" >> "$rc_file"
+                echo "# Google Cloud SDK" >> "$rc_file"
+                echo "if [ -f '$HOME/google-cloud-sdk/path.bash.inc' ]; then . '$HOME/google-cloud-sdk/path.bash.inc'; fi" >> "$rc_file"
+                echo "if [ -f '$HOME/google-cloud-sdk/completion.bash.inc' ]; then . '$HOME/google-cloud-sdk/completion.bash.inc'; fi" >> "$rc_file"
+            fi
+            
+            # Add aliases
+            if ! grep -q "# Google Cloud aliases" "$rc_file"; then
+                echo "$gcloud_aliases" >> "$rc_file"
+                log_success "Added Google Cloud aliases to $(basename $rc_file)"
+            else
+                log_info "Google Cloud aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+create_gcloud_templates() {
+    log_info "Creating Google Cloud templates..."
+    
+    mkdir -p "$HOME/.config/gcloud/templates"
+    
+    # Terraform GCP template
+    cat > "$HOME/.config/gcloud/templates/main.tf" << 'EOF'
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
+variable "project_id" {
+  description = "GCP Project ID"
+  type        = string
+}
+
+variable "region" {
+  description = "GCP Region"
+  type        = string
+  default     = "us-central1"
+}
+
+# VPC Network
+resource "google_compute_network" "vpc" {
+  name                    = "${var.project_id}-vpc"
+  auto_create_subnetworks = false
+}
+
+# Subnet
+resource "google_compute_subnetwork" "subnet" {
+  name          = "${var.project_id}-subnet"
+  ip_cidr_range = "10.0.0.0/24"
+  region        = var.region
+  network       = google_compute_network.vpc.id
+}
+
+# Firewall Rules
+resource "google_compute_firewall" "allow_http" {
+  name    = "allow-http"
+  network = google_compute_network.vpc.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["web"]
+}
+
+# Compute Instance
+resource "google_compute_instance" "vm" {
+  name         = "${var.project_id}-vm"
+  machine_type = "e2-micro"
+  zone         = "${var.region}-a"
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-11"
+    }
+  }
+
+  network_interface {
+    network    = google_compute_network.vpc.name
+    subnetwork = google_compute_subnetwork.subnet.name
+    
+    access_config {
+      // Ephemeral public IP
+    }
+  }
+
+  tags = ["web"]
+}
+
+output "instance_ip" {
+  value = google_compute_instance.vm.network_interface[0].access_config[0].nat_ip
+}
+EOF
+    
+    # Cloud Function template
+    cat > "$HOME/.config/gcloud/templates/function.py" << 'EOF'
+import functions_framework
+import json
+
+@functions_framework.http
+def hello_world(request):
+    """HTTP Cloud Function.
+    Args:
+        request (flask.Request): The request object.
+    Returns:
+        The response text, or any set of values that can be turned into a
+        Response object using `make_response`.
+    """
+    request_json = request.get_json(silent=True)
+    request_args = request.args
+
+    if request_json and 'name' in request_json:
+        name = request_json['name']
+    elif request_args and 'name' in request_args:
+        name = request_args['name']
+    else:
+        name = 'World'
+    
+    return json.dumps({
+        'message': f'Hello {name}!',
+        'success': True
+    })
+EOF
+    
+    # Cloud Run Dockerfile
+    cat > "$HOME/.config/gcloud/templates/Dockerfile.cloudrun" << 'EOF'
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Run as non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Cloud Run expects port 8080
+EXPOSE 8080
+
+CMD ["python", "app.py"]
+EOF
+    
+    # App Engine app.yaml
+    cat > "$HOME/.config/gcloud/templates/app.yaml" << 'EOF'
+runtime: python311
+
+instance_class: F1
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 2
+  min_idle_instances: 0
+  max_idle_instances: 1
+  min_pending_latency: 30ms
+  max_pending_latency: automatic
+
+env_variables:
+  ENV: "production"
+
+handlers:
+- url: /static
+  static_dir: static
+  
+- url: /.*
+  script: auto
+  secure: always
+  redirect_http_response_code: 301
+EOF
+    
+    # BigQuery query template
+    cat > "$HOME/.config/gcloud/templates/query.sql" << 'EOF'
+-- Sample BigQuery query
+WITH daily_stats AS (
+  SELECT
+    DATE(timestamp) as date,
+    COUNT(*) as event_count,
+    COUNT(DISTINCT user_id) as unique_users
+  FROM
+    `project.dataset.events`
+  WHERE
+    DATE(timestamp) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+  GROUP BY
+    date
+)
+SELECT
+  date,
+  event_count,
+  unique_users,
+  AVG(event_count) OVER (
+    ORDER BY date
+    ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+  ) as rolling_7day_avg
+FROM
+  daily_stats
+ORDER BY
+  date DESC
+EOF
+    
+    # Deployment script
+    cat > "$HOME/.config/gcloud/templates/deploy.sh" << 'EOF'
+#!/bin/bash
+# GCP deployment script template
+
+set -e
+
+PROJECT_ID="your-project-id"
+REGION="us-central1"
+SERVICE_NAME="my-service"
+
+echo "Deploying to GCP Project: $PROJECT_ID"
+
+# Set project
+gcloud config set project $PROJECT_ID
+
+# Enable required APIs
+gcloud services enable \
+  cloudbuild.googleapis.com \
+  run.googleapis.com \
+  artifactregistry.googleapis.com
+
+# Build and push container
+gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME
+
+# Deploy to Cloud Run
+gcloud run deploy $SERVICE_NAME \
+  --image gcr.io/$PROJECT_ID/$SERVICE_NAME \
+  --platform managed \
+  --region $REGION \
+  --allow-unauthenticated
+
+echo "Deployment complete!"
+EOF
+    chmod +x "$HOME/.config/gcloud/templates/deploy.sh"
+    
+    log_success "Google Cloud templates created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up Google Cloud CLI and tools..."
+    
+    install_gcloud_cli
+    install_gcloud_components
+    install_gsutil
+    install_cloud_sql_proxy
+    install_terraform
+    setup_gcloud_config
+    setup_gcloud_aliases
+    create_gcloud_templates
+    
+    log_success "Google Cloud tools setup complete!"
+    echo
+    echo "Installed tools:"
+    echo "  • gcloud - Google Cloud CLI"
+    echo "  • gsutil - Cloud Storage utility"
+    echo "  • kubectl - Kubernetes CLI (via gcloud)"
+    echo "  • Cloud SQL Proxy"
+    echo "  • Terraform"
+    echo "  • Various emulators and components"
+    echo
+    echo "Quick start:"
+    echo "  gcloud init              - Initialize gcloud"
+    echo "  gcloud auth login        - Authenticate"
+    echo "  gcloud projects list     - List projects"
+    echo "  gcloud config set project PROJECT_ID"
+    echo
+    echo "Templates available in ~/.config/gcloud/templates/"
+    echo
+    echo "Note: Restart your shell to enable completions"
+}
+
+main "$@"
