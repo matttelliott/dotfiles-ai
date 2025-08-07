@@ -1,0 +1,465 @@
+#!/bin/bash
+# Go language setup script
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS and architecture
+detect_platform() {
+    OS="$(uname -s)"
+    ARCH="$(uname -m)"
+    
+    case "$OS" in
+        Darwin)
+            PLATFORM="darwin"
+            ;;
+        Linux)
+            PLATFORM="linux"
+            ;;
+        *)
+            log_warning "Unsupported OS: $OS"
+            exit 1
+            ;;
+    esac
+    
+    case "$ARCH" in
+        x86_64)
+            ARCH_GO="amd64"
+            ;;
+        aarch64|arm64)
+            ARCH_GO="arm64"
+            ;;
+        *)
+            log_warning "Unsupported architecture: $ARCH"
+            exit 1
+            ;;
+    esac
+}
+
+install_go() {
+    log_info "Installing Go..."
+    
+    # Check if Go is already installed
+    if command -v go &> /dev/null; then
+        CURRENT_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+        log_info "Go $CURRENT_VERSION is already installed"
+        log_info "Checking for updates..."
+    fi
+    
+    # Get latest Go version
+    LATEST_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -n1 | sed 's/go//')
+    
+    if [[ -z "$LATEST_VERSION" ]]; then
+        log_warning "Could not determine latest Go version"
+        LATEST_VERSION="1.21.5"  # Fallback version
+    fi
+    
+    if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" ]]; then
+        log_info "Go is up to date (version $LATEST_VERSION)"
+        return 0
+    fi
+    
+    log_info "Installing Go $LATEST_VERSION..."
+    
+    detect_platform
+    
+    # Download and install Go
+    DOWNLOAD_URL="https://go.dev/dl/go${LATEST_VERSION}.${PLATFORM}-${ARCH_GO}.tar.gz"
+    log_info "Downloading from: $DOWNLOAD_URL"
+    
+    # Download to temp directory
+    TEMP_DIR=$(mktemp -d)
+    cd "$TEMP_DIR"
+    
+    curl -L -o go.tar.gz "$DOWNLOAD_URL"
+    
+    # Remove old installation if it exists
+    if [[ -d "/usr/local/go" ]]; then
+        log_info "Removing old Go installation..."
+        sudo rm -rf /usr/local/go
+    fi
+    
+    # Extract and install
+    sudo tar -C /usr/local -xzf go.tar.gz
+    
+    # Cleanup
+    cd - > /dev/null
+    rm -rf "$TEMP_DIR"
+    
+    log_success "Go $LATEST_VERSION installed successfully"
+}
+
+setup_go_environment() {
+    log_info "Setting up Go environment..."
+    
+    # Create Go workspace directories
+    mkdir -p "$HOME/go/src"
+    mkdir -p "$HOME/go/bin"
+    mkdir -p "$HOME/go/pkg"
+    
+    local go_config='
+# Go language
+export GOROOT="/usr/local/go"
+export GOPATH="$HOME/go"
+export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+
+# Go environment variables
+export GO111MODULE="on"
+export GOPROXY="https://proxy.golang.org,direct"
+export GOSUMDB="sum.golang.org"
+export GOPRIVATE=""
+
+# Go aliases
+alias gob="go build"
+alias gobv="go build -v"
+alias goba="go build ./..."
+alias gor="go run"
+alias gorv="go run -v"
+alias gorm="go run main.go"
+alias got="go test"
+alias gotv="go test -v"
+alias gota="go test ./..."
+alias gotc="go test -cover"
+alias gotcv="go test -cover -v"
+alias gotb="go test -bench ."
+alias gof="go fmt"
+alias gofa="go fmt ./..."
+alias gog="go get"
+alias gogu="go get -u"
+alias goga="go get -u ./..."
+alias goi="go install"
+alias gom="go mod"
+alias gomi="go mod init"
+alias gomt="go mod tidy"
+alias gomd="go mod download"
+alias gomv="go mod vendor"
+alias gov="go vet"
+alias gova="go vet ./..."
+alias gol="golangci-lint run"
+alias gola="golangci-lint run ./..."
+alias gow="go work"
+
+# Go functions
+gocover() {
+    go test -coverprofile=coverage.out "$@" && go tool cover -html=coverage.out
+}
+
+gonew() {
+    if [ -z "$1" ]; then
+        echo "Usage: gonew <module-name>"
+        return 1
+    fi
+    mkdir -p "$1" && cd "$1" && go mod init "$1"
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "GOROOT" "$rc_file"; then
+                echo "$go_config" >> "$rc_file"
+                log_success "Added Go config to $(basename $rc_file)"
+            else
+                log_info "Go already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+    
+    # Set for current session
+    export GOROOT="/usr/local/go"
+    export GOPATH="$HOME/go"
+    export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+    export GO111MODULE="on"
+}
+
+install_go_tools() {
+    log_info "Installing essential Go tools..."
+    
+    # Ensure Go is available
+    if ! command -v go &> /dev/null; then
+        log_warning "Go not found in PATH"
+        return 1
+    fi
+    
+    # Essential Go tools
+    local tools=(
+        "golang.org/x/tools/gopls@latest"              # Language server
+        "github.com/go-delve/delve/cmd/dlv@latest"     # Debugger
+        "honnef.co/go/tools/cmd/staticcheck@latest"    # Static analysis
+        "golang.org/x/tools/cmd/goimports@latest"      # Import management
+        "github.com/golangci/golangci-lint/cmd/golangci-lint@latest"  # Linter
+        "github.com/fatih/gomodifytags@latest"         # Struct tag modification
+        "github.com/cweill/gotests/gotests@latest"     # Generate tests
+        "github.com/ramya-rao-a/go-outline@latest"     # Code outline
+        "github.com/mgechev/revive@latest"             # Linter
+        "github.com/securego/gosec/v2/cmd/gosec@latest" # Security checker
+        "github.com/cosmtrek/air@latest"               # Live reload
+        "github.com/go-task/task/v3/cmd/task@latest"   # Task runner
+        "github.com/goreleaser/goreleaser@latest"      # Release automation
+        "github.com/mikefarah/yq/v4@latest"            # YAML processor
+        "github.com/swaggo/swag/cmd/swag@latest"       # Swagger generator
+    )
+    
+    log_info "Installing Go tools (this may take a while)..."
+    for tool in "${tools[@]}"; do
+        tool_name=$(echo "$tool" | awk -F'/' '{print $NF}' | awk -F'@' '{print $1}')
+        log_info "Installing $tool_name..."
+        go install "$tool" || log_warning "Failed to install $tool_name"
+    done
+    
+    log_success "Go tools installed"
+}
+
+create_go_templates() {
+    log_info "Creating Go project templates..."
+    
+    # Create template directory
+    mkdir -p "$HOME/.config/go/templates"
+    
+    # Create main.go template
+    cat > "$HOME/.config/go/templates/main.go" << 'EOF'
+package main
+
+import (
+    "fmt"
+    "log"
+)
+
+func main() {
+    if err := run(); err != nil {
+        log.Fatal(err)
+    }
+}
+
+func run() error {
+    fmt.Println("Hello, World!")
+    return nil
+}
+EOF
+    
+    # Create Makefile template
+    cat > "$HOME/.config/go/templates/Makefile" << 'EOF'
+.PHONY: build run test clean lint fmt
+
+# Variables
+BINARY_NAME=app
+BINARY_PATH=bin/$(BINARY_NAME)
+MAIN_PATH=cmd/$(BINARY_NAME)/main.go
+GO_FILES=$(shell find . -name '*.go' -type f)
+
+# Build the binary
+build:
+	@echo "Building..."
+	go build -o $(BINARY_PATH) $(MAIN_PATH)
+
+# Run the application
+run:
+	@echo "Running..."
+	go run $(MAIN_PATH)
+
+# Run tests
+test:
+	@echo "Testing..."
+	go test -v -race -cover ./...
+
+# Run tests with coverage
+coverage:
+	@echo "Running tests with coverage..."
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Clean build artifacts
+clean:
+	@echo "Cleaning..."
+	go clean
+	rm -f $(BINARY_PATH)
+	rm -f coverage.out coverage.html
+
+# Run linter
+lint:
+	@echo "Linting..."
+	golangci-lint run ./...
+
+# Format code
+fmt:
+	@echo "Formatting..."
+	go fmt ./...
+	goimports -w $(GO_FILES)
+
+# Install dependencies
+deps:
+	@echo "Installing dependencies..."
+	go mod tidy
+	go mod download
+
+# Run with hot reload (requires air)
+dev:
+	@echo "Starting development server..."
+	air
+
+# Build for all platforms
+build-all:
+	@echo "Building for all platforms..."
+	GOOS=linux GOARCH=amd64 go build -o bin/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=amd64 go build -o bin/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=arm64 go build -o bin/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
+	GOOS=windows GOARCH=amd64 go build -o bin/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
+EOF
+    
+    # Create .golangci.yml template
+    cat > "$HOME/.config/go/templates/.golangci.yml" << 'EOF'
+linters:
+  enable:
+    - gofmt
+    - golint
+    - govet
+    - gocyclo
+    - ineffassign
+    - misspell
+    - deadcode
+    - staticcheck
+    - gosec
+    - prealloc
+    - unconvert
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  govet:
+    check-shadowing: true
+  golint:
+    min-confidence: 0.8
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m
+  tests: true
+EOF
+    
+    # Create go.work template for workspaces
+    cat > "$HOME/.config/go/templates/go.work" << 'EOF'
+go 1.21
+
+use (
+    ./module1
+    ./module2
+)
+EOF
+    
+    log_success "Go templates created"
+}
+
+setup_air_config() {
+    log_info "Creating air configuration for hot reload..."
+    
+    # Create air config template
+    cat > "$HOME/.config/go/templates/.air.toml" << 'EOF'
+# Air configuration for live reloading
+
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+  args_bin = []
+  bin = "./tmp/main"
+  cmd = "go build -o ./tmp/main ."
+  delay = 1000
+  exclude_dir = ["assets", "tmp", "vendor", "testdata"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = ""
+  include_dir = []
+  include_ext = ["go", "tpl", "tmpl", "html"]
+  include_file = []
+  kill_delay = "0s"
+  log = "build-errors.log"
+  rerun = false
+  rerun_delay = 500
+  send_interrupt = false
+  stop_on_error = false
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  time = false
+
+[misc]
+  clean_on_exit = false
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true
+EOF
+    
+    log_success "Air configuration template created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up Go..."
+    
+    install_go
+    setup_go_environment
+    install_go_tools
+    create_go_templates
+    setup_air_config
+    
+    log_success "Go setup complete!"
+    echo
+    if command -v go &> /dev/null; then
+        go version
+    fi
+    echo
+    echo "Go workspace: $HOME/go"
+    echo
+    echo "Installed tools:"
+    echo "  • gopls - Language server"
+    echo "  • dlv - Debugger"
+    echo "  • staticcheck - Static analysis"
+    echo "  • golangci-lint - Comprehensive linter"
+    echo "  • air - Live reload for development"
+    echo "  • And more!"
+    echo
+    echo "Quick start:"
+    echo "  gonew myproject      - Create new module"
+    echo "  go mod init          - Initialize module"
+    echo "  go get package       - Add dependency"
+    echo "  go run main.go       - Run program"
+    echo "  go test ./...        - Run tests"
+    echo "  air                  - Run with hot reload"
+    echo
+    echo "Note: Restart your shell or run 'source ~/.zshrc' to use Go"
+}
+
+main "$@"
