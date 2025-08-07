@@ -1,0 +1,344 @@
+#!/bin/bash
+# Rust setup script via rustup
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+install_rustup() {
+    log_info "Installing Rust via rustup..."
+    
+    if command -v rustup &> /dev/null; then
+        log_info "rustup is already installed"
+        log_info "Updating rustup..."
+        rustup self update
+        rustup update stable
+        return 0
+    fi
+    
+    # Install rustup
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+    
+    # Source cargo env for current session
+    source "$HOME/.cargo/env"
+    
+    log_success "Rust installed successfully"
+}
+
+setup_rust_shell_integration() {
+    log_info "Setting up Rust shell integration..."
+    
+    local rust_config='
+# Rust
+source "$HOME/.cargo/env" 2>/dev/null || true
+
+# Rust aliases
+alias cb="cargo build"
+alias cbr="cargo build --release"
+alias cr="cargo run"
+alias crr="cargo run --release"
+alias ct="cargo test"
+alias cc="cargo check"
+alias cf="cargo fmt"
+alias cfc="cargo fmt --check"
+alias ccl="cargo clippy"
+alias cclf="cargo clippy --fix"
+alias cu="cargo update"
+alias ci="cargo install"
+alias cn="cargo new"
+alias cd="cargo doc"
+alias cdo="cargo doc --open"
+alias cw="cargo watch"
+alias cwr="cargo watch -x run"
+alias cwt="cargo watch -x test"
+alias cwc="cargo watch -x check"
+
+# Cargo extensions shortcuts
+alias cargo-edit="cargo install cargo-edit"     # Add/remove deps from CLI
+alias cargo-watch="cargo install cargo-watch"   # Auto-rebuild on changes
+alias cargo-expand="cargo install cargo-expand" # Expand macros
+alias cargo-audit="cargo install cargo-audit"   # Security audit
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q ".cargo/env" "$rc_file"; then
+                echo "$rust_config" >> "$rc_file"
+                log_success "Added Rust config to $(basename $rc_file)"
+            else
+                log_info "Rust already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+install_rust_components() {
+    log_info "Installing Rust components..."
+    
+    # Ensure cargo is available
+    if ! command -v rustup &> /dev/null; then
+        log_warning "rustup not found, skipping components"
+        return 1
+    fi
+    
+    # Install rust components
+    rustup component add rustfmt       # Code formatter
+    rustup component add clippy        # Linter
+    rustup component add rust-src      # Source code (for IDEs)
+    rustup component add rust-analyzer # LSP server
+    
+    log_success "Rust components installed"
+}
+
+install_cargo_tools() {
+    log_info "Installing essential cargo tools..."
+    
+    if ! command -v cargo &> /dev/null; then
+        log_warning "cargo not found, skipping tools"
+        return 1
+    fi
+    
+    # Essential cargo extensions
+    local tools=(
+        "cargo-edit"        # Add/remove dependencies from CLI
+        "cargo-watch"       # Auto-rebuild on file changes
+        "cargo-audit"       # Security vulnerability audit
+        "cargo-outdated"    # Check for outdated dependencies
+        "cargo-tree"        # Display dependency tree
+        "cargo-bloat"       # Find what takes most space
+        "cargo-deps"        # Generate dependency graphs
+        "cargo-make"        # Task runner
+        "tokei"             # Code statistics
+        "hyperfine"         # Benchmarking tool
+        "just"              # Command runner
+        "bacon"             # Background compiler
+        "sccache"           # Shared compilation cache
+    )
+    
+    log_info "Installing cargo tools (this may take a while)..."
+    for tool in "${tools[@]}"; do
+        log_info "Installing $tool..."
+        cargo install "$tool" || log_warning "Failed to install $tool"
+    done
+    
+    # Install additional tools that might already be installed
+    local maybe_installed=(
+        "ripgrep"           # Fast grep (rg)
+        "fd-find"           # Fast find (fd)
+        "bat"               # Better cat
+        "exa"               # Better ls (if not using eza)
+        "du-dust"           # Better du
+        "bottom"            # Better top (btm)
+        "zoxide"            # Better cd
+        "starship"          # Prompt (if not already)
+    )
+    
+    for tool in "${maybe_installed[@]}"; do
+        # Check if command exists (might be installed via system package manager)
+        cmd_name="${tool#cargo-}"  # Remove cargo- prefix if present
+        cmd_name="${cmd_name//-/_}"  # Replace - with _
+        
+        case "$tool" in
+            "fd-find") cmd_name="fd" ;;
+            "du-dust") cmd_name="dust" ;;
+            "bottom") cmd_name="btm" ;;
+        esac
+        
+        if ! command -v "$cmd_name" &> /dev/null; then
+            log_info "Installing $tool..."
+            cargo install "$tool" || log_warning "Failed to install $tool"
+        else
+            log_info "$tool already available"
+        fi
+    done
+    
+    log_success "Cargo tools installed"
+}
+
+setup_rust_analyzer() {
+    log_info "Setting up rust-analyzer for IDE support..."
+    
+    # rust-analyzer is installed via rustup component
+    # Create config for common editors
+    
+    # VS Code settings
+    mkdir -p "$HOME/.config/Code/User"
+    if [[ -f "$HOME/.config/Code/User/settings.json" ]]; then
+        log_info "VS Code detected, rust-analyzer will be used automatically"
+    fi
+    
+    # Neovim - handled by LSP config
+    if command -v nvim &> /dev/null; then
+        log_info "Neovim detected, configure rust-analyzer in your LSP settings"
+    fi
+    
+    log_success "rust-analyzer ready for use"
+}
+
+create_rust_template() {
+    log_info "Creating Rust project templates..."
+    
+    # Create template directory
+    mkdir -p "$HOME/.config/rust/templates"
+    
+    # Create Cargo.toml template
+    cat > "$HOME/.config/rust/templates/Cargo.toml" << 'EOF'
+[package]
+name = "project-name"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+description = "Project description"
+license = "MIT"
+repository = "https://github.com/username/project"
+
+[dependencies]
+# Common dependencies examples:
+# serde = { version = "1.0", features = ["derive"] }
+# tokio = { version = "1", features = ["full"] }
+# anyhow = "1.0"
+# thiserror = "1.0"
+# clap = { version = "4", features = ["derive"] }
+# tracing = "0.1"
+# tracing-subscriber = "0.3"
+
+[dev-dependencies]
+# Test dependencies:
+# criterion = "0.5"
+# proptest = "1.0"
+# pretty_assertions = "1.0"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+EOF
+    
+    # Create rustfmt.toml template
+    cat > "$HOME/.config/rust/templates/rustfmt.toml" << 'EOF'
+# Rust formatting configuration
+edition = "2021"
+max_width = 100
+tab_spaces = 4
+newline_style = "Unix"
+use_small_heuristics = "Default"
+reorder_imports = true
+reorder_modules = true
+remove_nested_parens = true
+format_code_in_doc_comments = true
+format_strings = true
+format_macro_matchers = true
+format_macro_bodies = true
+wrap_comments = true
+EOF
+    
+    # Create clippy.toml template
+    cat > "$HOME/.config/rust/templates/clippy.toml" << 'EOF'
+# Clippy linting configuration
+msrv = "1.70.0"
+warn-on-all-wildcard-imports = true
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+allow-dbg-in-tests = true
+allow-print-in-tests = true
+EOF
+    
+    log_success "Rust templates created"
+}
+
+setup_sccache() {
+    log_info "Setting up sccache for faster compilations..."
+    
+    if command -v sccache &> /dev/null; then
+        # Configure cargo to use sccache
+        local sccache_config='
+# sccache for faster Rust compilation
+export RUSTC_WRAPPER="sccache"
+export SCCACHE_DIR="$HOME/.cache/sccache"
+export SCCACHE_CACHE_SIZE="10G"
+'
+        
+        for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+            if [[ -f "$rc_file" ]]; then
+                if ! grep -q "RUSTC_WRAPPER" "$rc_file"; then
+                    echo "$sccache_config" >> "$rc_file"
+                    log_success "Added sccache config to $(basename $rc_file)"
+                fi
+            fi
+        done
+        
+        # Create cargo config
+        mkdir -p "$HOME/.cargo"
+        if ! grep -q "rustc-wrapper" "$HOME/.cargo/config.toml" 2>/dev/null; then
+            cat >> "$HOME/.cargo/config.toml" << 'EOF'
+
+[build]
+rustc-wrapper = "sccache"
+EOF
+            log_success "Configured cargo to use sccache"
+        fi
+    fi
+}
+
+# Main installation
+main() {
+    log_info "Setting up Rust..."
+    
+    install_rustup
+    setup_rust_shell_integration
+    install_rust_components
+    install_cargo_tools
+    setup_rust_analyzer
+    create_rust_template
+    setup_sccache
+    
+    log_success "Rust setup complete!"
+    echo
+    if command -v rustc &> /dev/null; then
+        echo "Rust $(rustc --version) is installed"
+    fi
+    if command -v cargo &> /dev/null; then
+        echo "Cargo $(cargo --version | head -n1) is installed"
+    fi
+    echo
+    echo "Installed components:"
+    echo "  • rustfmt - Code formatter"
+    echo "  • clippy - Linter"
+    echo "  • rust-analyzer - LSP server"
+    echo
+    echo "Installed tools:"
+    echo "  • cargo-edit - Manage dependencies from CLI"
+    echo "  • cargo-watch - Auto-rebuild on changes"
+    echo "  • cargo-audit - Security audits"
+    echo "  • And many more!"
+    echo
+    echo "Quick start:"
+    echo "  cargo new my_project  - Create new project"
+    echo "  cd my_project"
+    echo "  cargo run            - Build and run"
+    echo "  cargo test           - Run tests"
+    echo "  cargo fmt            - Format code"
+    echo "  cargo clippy         - Lint code"
+    echo
+    echo "Note: Restart your shell or run 'source ~/.cargo/env' to use Rust"
+}
+
+main "$@"

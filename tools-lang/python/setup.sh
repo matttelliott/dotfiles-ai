@@ -1,0 +1,406 @@
+#!/bin/bash
+# Python setup script via pyenv and uv
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_python_dependencies() {
+    log_info "Installing Python build dependencies..."
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install openssl readline sqlite3 xz zlib tcl-tk
+            fi
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y \
+                build-essential \
+                libssl-dev \
+                zlib1g-dev \
+                libbz2-dev \
+                libreadline-dev \
+                libsqlite3-dev \
+                wget \
+                curl \
+                llvm \
+                libncursesw5-dev \
+                xz-utils \
+                tk-dev \
+                libxml2-dev \
+                libxmlsec1-dev \
+                libffi-dev \
+                liblzma-dev
+            ;;
+    esac
+}
+
+install_pyenv() {
+    log_info "Installing pyenv (Python Version Manager)..."
+    
+    if [[ -d "$HOME/.pyenv" ]]; then
+        log_info "pyenv is already installed"
+        # Update pyenv
+        cd "$HOME/.pyenv" && git pull && cd - > /dev/null
+        return 0
+    fi
+    
+    # Install pyenv
+    curl https://pyenv.run | bash
+    
+    log_success "pyenv installed successfully"
+}
+
+setup_pyenv_shell_integration() {
+    log_info "Setting up pyenv shell integration..."
+    
+    local pyenv_config='
+# pyenv (Python Version Manager)
+export PYENV_ROOT="$HOME/.pyenv"
+command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)" 2>/dev/null || true
+
+# pyenv aliases
+alias pyv="pyenv versions"
+alias pyi="pyenv install"
+alias pyg="pyenv global"
+alias pyl="pyenv local"
+alias pys="pyenv shell"
+alias pyu="pyenv uninstall"
+alias pyup="cd ~/.pyenv && git pull"
+
+# Auto-activate virtualenv
+if command -v pyenv-virtualenv-init > /dev/null; then
+  eval "$(pyenv virtualenv-init -)"
+fi
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.profile"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "PYENV_ROOT" "$rc_file"; then
+                echo "$pyenv_config" >> "$rc_file"
+                log_success "Added pyenv config to $(basename $rc_file)"
+            else
+                log_info "pyenv already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+    
+    # Source for current session
+    export PYENV_ROOT="$HOME/.pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+    eval "$(pyenv init -)" || true
+}
+
+install_uv() {
+    log_info "Installing uv (Fast Python package manager)..."
+    
+    if command -v uv &> /dev/null; then
+        log_info "uv is already installed: $(uv --version)"
+        return 0
+    fi
+    
+    # Install uv
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    
+    # Add to PATH for current session
+    export PATH="$HOME/.cargo/bin:$PATH"
+    
+    log_success "uv installed successfully"
+}
+
+setup_uv_shell_integration() {
+    log_info "Setting up uv shell integration..."
+    
+    local uv_config='
+# uv (Fast Python package manager)
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# uv aliases
+alias uvv="uv venv"
+alias uvi="uv pip install"
+alias uvs="uv pip sync"
+alias uvl="uv pip list"
+alias uvf="uv pip freeze"
+alias uvr="uv run"
+alias uva="source .venv/bin/activate"
+alias uvd="deactivate"
+
+# Quick virtual environment activation
+venv() {
+    if [[ -d ".venv" ]]; then
+        source .venv/bin/activate
+    elif [[ -d "venv" ]]; then
+        source venv/bin/activate
+    else
+        echo "No virtual environment found"
+    fi
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# uv (Fast Python package manager)" "$rc_file"; then
+                echo "$uv_config" >> "$rc_file"
+                log_success "Added uv config to $(basename $rc_file)"
+            else
+                log_info "uv already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+install_python_versions() {
+    log_info "Installing Python versions..."
+    
+    # Ensure pyenv is available
+    if ! command -v pyenv &> /dev/null; then
+        log_error "pyenv not found in PATH"
+        return 1
+    fi
+    
+    # Install latest stable Python 3.11 and 3.12
+    local python_versions=("3.11" "3.12")
+    
+    for version in "${python_versions[@]}"; do
+        # Get latest patch version
+        latest=$(pyenv install --list | grep -E "^  ${version}\.[0-9]+$" | tail -1 | xargs)
+        
+        if [[ -n "$latest" ]]; then
+            if pyenv versions | grep -q "$latest"; then
+                log_info "Python $latest is already installed"
+            else
+                log_info "Installing Python $latest..."
+                pyenv install "$latest"
+                log_success "Python $latest installed"
+            fi
+        else
+            log_warning "Could not find Python $version version"
+        fi
+    done
+    
+    # Set global Python to latest 3.12
+    latest_312=$(pyenv versions --bare | grep -E "^3\.12\.[0-9]+$" | tail -1)
+    if [[ -n "$latest_312" ]]; then
+        pyenv global "$latest_312"
+        log_success "Set global Python to $latest_312"
+    fi
+}
+
+install_python_tools() {
+    log_info "Installing essential Python tools..."
+    
+    # Use uv for fast installation
+    if command -v uv &> /dev/null; then
+        log_info "Installing Python tools with uv..."
+        
+        # Create a global tools environment
+        uv venv ~/.python-tools
+        source ~/.python-tools/bin/activate
+        
+        # Install tools
+        uv pip install \
+            black \
+            flake8 \
+            mypy \
+            pytest \
+            pytest-cov \
+            ruff \
+            ipython \
+            jupyter \
+            notebook \
+            pandas \
+            numpy \
+            requests \
+            rich \
+            typer \
+            poetry \
+            pipx \
+            pre-commit \
+            tox \
+            virtualenv
+        
+        deactivate
+        
+        # Add tools to PATH
+        local tools_path='
+# Python global tools
+export PATH="$HOME/.python-tools/bin:$PATH"
+'
+        
+        for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+            if [[ -f "$rc_file" ]]; then
+                if ! grep -q ".python-tools/bin" "$rc_file"; then
+                    echo "$tools_path" >> "$rc_file"
+                fi
+            fi
+        done
+        
+        log_success "Python tools installed"
+    else
+        log_warning "uv not found, skipping Python tools installation"
+    fi
+}
+
+setup_pip_config() {
+    log_info "Configuring pip..."
+    
+    # Create pip config directory
+    mkdir -p "$HOME/.config/pip"
+    
+    # Create pip config
+    cat > "$HOME/.config/pip/pip.conf" << 'EOF'
+[global]
+require-virtualenv = false
+download-cache = ~/.cache/pip
+index-url = https://pypi.org/simple
+
+[install]
+compile = yes
+progress-bar = on
+
+[list]
+format = columns
+EOF
+    
+    log_success "pip configured"
+}
+
+create_python_template() {
+    log_info "Creating Python project template..."
+    
+    # Create template directory
+    mkdir -p "$HOME/.config/python/templates"
+    
+    # Create .python-version template
+    if command -v python &> /dev/null; then
+        python --version | cut -d' ' -f2 > "$HOME/.config/python/python-version.template"
+    fi
+    
+    # Create pyproject.toml template
+    cat > "$HOME/.config/python/templates/pyproject.toml" << 'EOF'
+[project]
+name = "project-name"
+version = "0.1.0"
+description = "Project description"
+authors = [{name = "Your Name", email = "you@example.com"}]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "ARG"]
+ignore = []
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+EOF
+    
+    log_success "Python templates created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up Python with pyenv and uv..."
+    
+    install_python_dependencies
+    install_pyenv
+    setup_pyenv_shell_integration
+    install_uv
+    setup_uv_shell_integration
+    install_python_versions
+    install_python_tools
+    setup_pip_config
+    create_python_template
+    
+    log_success "Python setup complete!"
+    echo
+    if command -v python &> /dev/null; then
+        echo "Python $(python --version 2>&1) is installed"
+    fi
+    echo
+    echo "pyenv commands:"
+    echo "  pyenv install 3.12     - Install Python 3.12"
+    echo "  pyenv global 3.12      - Set global Python"
+    echo "  pyenv local 3.11       - Set local Python"
+    echo "  pyenv versions         - List installed versions"
+    echo
+    echo "uv commands:"
+    echo "  uv venv                - Create virtual environment"
+    echo "  uv pip install package - Install package (fast!)"
+    echo "  uv run script.py       - Run script in venv"
+    echo
+    echo "Global tools installed in ~/.python-tools:"
+    echo "  black, ruff, mypy, pytest, ipython, jupyter, and more"
+    echo
+    echo "Note: Restart your shell or run 'source ~/.zshrc' to use pyenv and uv"
+}
+
+main "$@"
