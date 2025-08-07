@@ -1,0 +1,261 @@
+#!/bin/bash
+# eza setup script - modern replacement for ls
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_eza() {
+    log_info "Installing eza..."
+    
+    if command -v eza &> /dev/null; then
+        log_info "eza is already installed: $(eza --version)"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install eza
+            else
+                log_warning "Homebrew not found, installing via cargo..."
+                install_via_cargo
+            fi
+            ;;
+        debian)
+            # Try to install from package manager first
+            if install_from_apt; then
+                log_success "eza installed from apt"
+            else
+                log_info "eza not available in apt, trying cargo..."
+                install_via_cargo
+            fi
+            ;;
+        linux)
+            # Generic Linux installation
+            if command -v cargo &> /dev/null; then
+                install_via_cargo
+            else
+                install_from_binary
+            fi
+            ;;
+    esac
+    
+    log_success "eza installed successfully"
+}
+
+install_from_apt() {
+    # For newer Debian/Ubuntu versions, eza might be available
+    log_info "Checking if eza is available in apt..."
+    
+    # Add eza repository for Debian/Ubuntu
+    if [[ "$PLATFORM" == "debian" ]]; then
+        # Install GPG if not present
+        sudo apt update
+        sudo apt install -y gpg
+        
+        # Add eza repository
+        sudo mkdir -p /etc/apt/keyrings
+        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
+        sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
+        sudo apt update
+        
+        if sudo apt install -y eza; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
+install_via_cargo() {
+    log_info "Installing eza via cargo..."
+    
+    # Check if Rust/cargo is installed
+    if ! command -v cargo &> /dev/null; then
+        log_info "Cargo not found, installing Rust..."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+    fi
+    
+    # Install eza via cargo
+    cargo install eza
+    
+    # Add cargo bin to PATH if not already there
+    ensure_cargo_in_path
+}
+
+install_from_binary() {
+    log_info "Installing eza from binary release..."
+    
+    # Detect architecture
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        x86_64)
+            ARCH_STRING="x86_64"
+            ;;
+        aarch64|arm64)
+            ARCH_STRING="aarch64"
+            ;;
+        *)
+            log_warning "Unsupported architecture: $ARCH, falling back to cargo"
+            install_via_cargo
+            return
+            ;;
+    esac
+    
+    # Get latest version
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/eza-community/eza/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+    
+    # Download and install
+    TEMP_DIR=$(mktemp -d)
+    cd "$TEMP_DIR"
+    
+    DOWNLOAD_URL="https://github.com/eza-community/eza/releases/download/v${LATEST_VERSION}/eza_${ARCH_STRING}-unknown-linux-gnu.tar.gz"
+    log_info "Downloading from: $DOWNLOAD_URL"
+    
+    if curl -L -o eza.tar.gz "$DOWNLOAD_URL"; then
+        tar xzf eza.tar.gz
+        sudo mv eza /usr/local/bin/
+        sudo chmod +x /usr/local/bin/eza
+        log_success "eza installed to /usr/local/bin/eza"
+    else
+        log_warning "Binary download failed, falling back to cargo"
+        install_via_cargo
+    fi
+    
+    # Cleanup
+    cd - > /dev/null
+    rm -rf "$TEMP_DIR"
+}
+
+ensure_cargo_in_path() {
+    local cargo_path='
+# Add cargo bin to PATH
+if [ -d "$HOME/.cargo/bin" ] ; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi'
+    
+    if [[ -f "$HOME/.zshrc" ]]; then
+        if ! grep -q ".cargo/bin" "$HOME/.zshrc"; then
+            echo "$cargo_path" >> "$HOME/.zshrc"
+            log_info "Added cargo bin to PATH in .zshrc"
+        fi
+    fi
+    
+    if [[ -f "$HOME/.bashrc" ]]; then
+        if ! grep -q ".cargo/bin" "$HOME/.bashrc"; then
+            echo "$cargo_path" >> "$HOME/.bashrc"
+            log_info "Added cargo bin to PATH in .bashrc"
+        fi
+    fi
+}
+
+setup_eza_aliases() {
+    log_info "Setting up eza aliases..."
+    
+    local aliases='
+# eza - modern ls replacement
+alias ls="eza --icons --group-directories-first"
+alias ll="eza --icons --group-directories-first -l"
+alias la="eza --icons --group-directories-first -la"
+alias lt="eza --icons --group-directories-first --tree"
+alias l="eza --icons --group-directories-first -la"
+
+# eza specific aliases
+alias ld="eza -lD"                    # directories only
+alias lf="eza -lf --color=always | grep -v /"  # files only
+alias lh="eza -dl .* --group-directories-first"  # hidden files
+alias ll="eza -al --group-directories-first"     # all files, long format
+alias ls="eza -a --group-directories-first"      # all files
+alias lt="eza --tree --level=2"       # tree view, 2 levels
+alias lx="eza -lbhHgmuSa"            # extended details
+alias lz="eza -la --sort=size"       # sort by size
+alias lt="eza -la --sort=modified"   # sort by modification time
+
+# Git-aware aliases
+alias lg="eza -la --git --git-ignore" # show git status
+alias ltg="eza --tree --git-ignore"   # tree respecting gitignore
+'
+    
+    # Add to zshrc if it exists
+    if [[ -f "$HOME/.zshrc" ]]; then
+        if ! grep -q "# eza - modern ls replacement" "$HOME/.zshrc"; then
+            echo "$aliases" >> "$HOME/.zshrc"
+            log_success "Added eza aliases to .zshrc"
+        else
+            log_info "eza aliases already configured in .zshrc"
+        fi
+    fi
+    
+    # Add to bashrc if it exists
+    if [[ -f "$HOME/.bashrc" ]]; then
+        if ! grep -q "# eza - modern ls replacement" "$HOME/.bashrc"; then
+            echo "$aliases" >> "$HOME/.bashrc"
+            log_success "Added eza aliases to .bashrc"
+        else
+            log_info "eza aliases already configured in .bashrc"
+        fi
+    fi
+}
+
+# Main installation
+main() {
+    log_info "Setting up eza..."
+    
+    install_eza
+    setup_eza_aliases
+    
+    log_success "eza setup complete!"
+    echo
+    echo "eza - A modern replacement for ls with colors and icons"
+    echo
+    echo "Features:"
+    echo "  • Colors and icons for different file types"
+    echo "  • Git integration showing file status"
+    echo "  • Tree view support"
+    echo "  • Extended file metadata"
+    echo
+    echo "Configured aliases:"
+    echo "  ls, ll, la, lt, l  - Common ls replacements"
+    echo "  ld                 - Directories only"
+    echo "  lf                 - Files only"
+    echo "  lh                 - Hidden files"
+    echo "  lz                 - Sort by size"
+    echo "  lg                 - Show git status"
+    echo "  ltg                - Tree respecting .gitignore"
+}
+
+main "$@"
