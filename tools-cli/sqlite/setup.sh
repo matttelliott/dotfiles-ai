@@ -1,0 +1,578 @@
+#!/bin/bash
+# SQLite and related tools setup
+
+set -e
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Detect OS
+OS="$(uname)"
+if [[ "$OS" == "Darwin" ]]; then
+    PLATFORM="macos"
+elif [[ "$OS" == "Linux" ]]; then
+    if [[ -f /etc/debian_version ]]; then
+        PLATFORM="debian"
+    else
+        PLATFORM="linux"
+    fi
+else
+    log_warning "Unknown platform: $OS"
+    exit 1
+fi
+
+install_sqlite() {
+    log_info "Installing SQLite..."
+    
+    if command -v sqlite3 &> /dev/null; then
+        log_info "SQLite is already installed: $(sqlite3 --version)"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            # macOS comes with SQLite pre-installed
+            log_info "SQLite comes pre-installed on macOS"
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y sqlite3 libsqlite3-dev
+            ;;
+        *)
+            log_warning "Unsupported platform for SQLite installation"
+            exit 1
+            ;;
+    esac
+    
+    log_success "SQLite installed"
+}
+
+install_litecli() {
+    log_info "Installing litecli (enhanced SQLite CLI)..."
+    
+    if command -v litecli &> /dev/null; then
+        log_info "litecli is already installed"
+        return 0
+    fi
+    
+    # Install via pip/pipx if available
+    if command -v pipx &> /dev/null; then
+        pipx install litecli
+    elif command -v pip3 &> /dev/null; then
+        pip3 install --user litecli
+    elif command -v uv &> /dev/null; then
+        uv tool install litecli
+    else
+        log_warning "Could not install litecli - pip, pipx, or uv required"
+    fi
+    
+    log_success "litecli installed"
+}
+
+install_sqlite_utils() {
+    log_info "Installing sqlite-utils..."
+    
+    if command -v sqlite-utils &> /dev/null; then
+        log_info "sqlite-utils is already installed"
+        return 0
+    fi
+    
+    # Install via pip/pipx if available
+    if command -v pipx &> /dev/null; then
+        pipx install sqlite-utils
+    elif command -v pip3 &> /dev/null; then
+        pip3 install --user sqlite-utils
+    elif command -v uv &> /dev/null; then
+        uv tool install sqlite-utils
+    else
+        log_warning "Could not install sqlite-utils - pip, pipx, or uv required"
+    fi
+    
+    log_success "sqlite-utils installed"
+}
+
+install_datasette() {
+    log_info "Installing datasette (SQLite web interface)..."
+    
+    if command -v datasette &> /dev/null; then
+        log_info "datasette is already installed"
+        return 0
+    fi
+    
+    # Install via pip/pipx if available
+    if command -v pipx &> /dev/null; then
+        pipx install datasette
+    elif command -v pip3 &> /dev/null; then
+        pip3 install --user datasette
+    elif command -v uv &> /dev/null; then
+        uv tool install datasette
+    else
+        log_warning "Could not install datasette - pip, pipx, or uv required"
+    fi
+    
+    log_success "datasette installed"
+}
+
+install_sqlitebrowser() {
+    log_info "Installing DB Browser for SQLite (GUI)..."
+    
+    if command -v sqlitebrowser &> /dev/null; then
+        log_info "DB Browser for SQLite is already installed"
+        return 0
+    fi
+    
+    case "$PLATFORM" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install --cask db-browser-for-sqlite
+            else
+                log_warning "Homebrew not found, please install DB Browser manually"
+            fi
+            ;;
+        debian)
+            sudo apt update
+            sudo apt install -y sqlitebrowser
+            ;;
+        *)
+            log_warning "Please install DB Browser for SQLite manually from https://sqlitebrowser.org/"
+            ;;
+    esac
+    
+    log_success "DB Browser for SQLite installed"
+}
+
+setup_sqlite_config() {
+    log_info "Setting up SQLite configuration..."
+    
+    # Create SQLite config directory
+    mkdir -p "$HOME/.config/sqlite3"
+    
+    # Create .sqliterc configuration
+    cat > "$HOME/.sqliterc" << 'EOF'
+-- Enable foreign key constraints
+PRAGMA foreign_keys = ON;
+
+-- Better output formatting
+.mode column
+.headers on
+.nullvalue NULL
+
+-- Prompt
+.prompt "sqlite> " "   ...> "
+
+-- History
+.histcontrol ignoredups
+
+-- Set width for better display
+.width auto
+
+-- Timer
+.timer on
+
+-- Show query execution plan
+-- .eqp on
+
+-- Useful settings
+.print "SQLite configuration loaded from ~/.sqliterc"
+EOF
+    
+    # Create litecli config if it was installed
+    if command -v litecli &> /dev/null; then
+        mkdir -p "$HOME/.config/litecli"
+        cat > "$HOME/.config/litecli/config" << 'EOF'
+# vi: ft=dosini
+[main]
+
+# Multi-line mode
+multi_line = True
+
+# Destructive warning
+destructive_warning = True
+
+# log_file location
+log_file = ~/.config/litecli/log
+
+# Default log level
+log_level = INFO
+
+# Timing of sql statements
+timing = True
+
+# Table format
+table_format = ascii
+
+# Syntax highlighting
+syntax_style = monokai
+
+# Keybindings
+key_bindings = emacs
+
+# Wider terminal handling
+wider_completion_menu = False
+
+# Autocompletion
+smart_completion = True
+
+# Display of null values
+null_string = NULL
+
+# Show/hide the help on startup
+less_chatty = False
+
+# Enable auto-vertical for wide tables
+auto_vertical_output = True
+
+[colors]
+completion-menu.completion = 'bg:#003333 #aaffcc'
+completion-menu.completion.current = 'bg:#00aaaa #000000'
+completion-menu.meta.completion = 'bg:#003333 #ffcc66'
+completion-menu.meta.completion.current = 'bg:#00aaaa #000000'
+EOF
+    fi
+    
+    log_success "SQLite configuration created"
+}
+
+setup_sqlite_aliases() {
+    log_info "Setting up SQLite aliases..."
+    
+    local sqlite_aliases='
+# SQLite aliases
+alias sq="sqlite3"
+alias sql="sqlite3"
+alias sqm="sqlite3 :memory:"  # In-memory database
+alias lite="litecli"
+
+# SQLite functions
+sqopen() {
+    # Open SQLite database with better defaults
+    sqlite3 -column -header "$@"
+}
+
+sqmem() {
+    # Create in-memory database with sample data
+    sqlite3 :memory: "
+        CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);
+        INSERT INTO users VALUES (1, '\''Alice'\'', '\''alice@example.com'\'');
+        INSERT INTO users VALUES (2, '\''Bob'\'', '\''bob@example.com'\'');
+        SELECT * FROM users;
+    " -column -header
+}
+
+sqbackup() {
+    # Backup SQLite database
+    if [[ -z "$1" ]]; then
+        echo "Usage: sqbackup database.db"
+        return 1
+    fi
+    sqlite3 "$1" ".backup '\''${1%.db}_$(date +%Y%m%d_%H%M%S).db'\''"
+    echo "Backup created: ${1%.db}_$(date +%Y%m%d_%H%M%S).db"
+}
+
+sqtables() {
+    # List tables in database
+    sqlite3 "$1" ".tables"
+}
+
+sqschema() {
+    # Show schema for database or table
+    if [[ -z "$2" ]]; then
+        sqlite3 "$1" ".schema"
+    else
+        sqlite3 "$1" ".schema $2"
+    fi
+}
+
+sqcount() {
+    # Count rows in table
+    sqlite3 "$1" "SELECT COUNT(*) FROM $2;"
+}
+
+sqjson() {
+    # Export table to JSON using sqlite-utils
+    if command -v sqlite-utils &> /dev/null; then
+        sqlite-utils rows "$1" "$2" --json
+    else
+        echo "sqlite-utils not installed"
+    fi
+}
+
+sqcsv() {
+    # Export query results to CSV
+    sqlite3 -csv -header "$1" "$2"
+}
+
+sqweb() {
+    # Open database in datasette web interface
+    if command -v datasette &> /dev/null; then
+        datasette "$1"
+    else
+        echo "datasette not installed"
+    fi
+}
+
+sqvacuum() {
+    # Vacuum and analyze database
+    sqlite3 "$1" "VACUUM; ANALYZE;"
+    echo "Database vacuumed and analyzed"
+}
+
+sqintegrity() {
+    # Check database integrity
+    sqlite3 "$1" "PRAGMA integrity_check;"
+}
+'
+    
+    # Add to shell RC files
+    for rc_file in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [[ -f "$rc_file" ]]; then
+            if ! grep -q "# SQLite aliases" "$rc_file"; then
+                echo "$sqlite_aliases" >> "$rc_file"
+                log_success "Added SQLite aliases to $(basename $rc_file)"
+            else
+                log_info "SQLite aliases already configured in $(basename $rc_file)"
+            fi
+        fi
+    done
+}
+
+create_sqlite_templates() {
+    log_info "Creating SQLite templates..."
+    
+    mkdir -p "$HOME/.config/sqlite3/templates"
+    
+    # Create sample database script
+    cat > "$HOME/.config/sqlite3/templates/create_sample.sql" << 'EOF'
+-- Sample database creation script
+
+-- Enable foreign keys
+PRAGMA foreign_keys = ON;
+
+-- Create users table
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create posts table
+CREATE TABLE posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT,
+    published BOOLEAN DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Create comments table
+CREATE TABLE comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Create indexes
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+CREATE INDEX idx_posts_published ON posts(published);
+CREATE INDEX idx_comments_post_id ON comments(post_id);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
+
+-- Create triggers for updated_at
+CREATE TRIGGER update_users_updated_at
+    AFTER UPDATE ON users
+    FOR EACH ROW
+    BEGIN
+        UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TRIGGER update_posts_updated_at
+    AFTER UPDATE ON posts
+    FOR EACH ROW
+    BEGIN
+        UPDATE posts SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+-- Insert sample data
+INSERT INTO users (username, email) VALUES
+    ('alice', 'alice@example.com'),
+    ('bob', 'bob@example.com'),
+    ('charlie', 'charlie@example.com');
+
+INSERT INTO posts (user_id, title, content, published) VALUES
+    (1, 'First Post', 'This is my first post!', 1),
+    (1, 'Second Post', 'Another great post', 1),
+    (2, 'Hello World', 'Bob says hello', 1),
+    (3, 'Draft Post', 'This is a draft', 0);
+
+INSERT INTO comments (post_id, user_id, content) VALUES
+    (1, 2, 'Great post!'),
+    (1, 3, 'Thanks for sharing'),
+    (2, 2, 'Nice follow-up'),
+    (3, 1, 'Interesting perspective');
+
+-- Create views
+CREATE VIEW post_details AS
+SELECT 
+    p.id,
+    p.title,
+    p.content,
+    p.published,
+    u.username AS author,
+    COUNT(c.id) AS comment_count,
+    p.created_at
+FROM posts p
+JOIN users u ON p.user_id = u.id
+LEFT JOIN comments c ON p.id = c.post_id
+GROUP BY p.id;
+
+-- Sample queries
+-- SELECT * FROM post_details WHERE published = 1;
+-- SELECT username, COUNT(*) as post_count FROM users u JOIN posts p ON u.id = p.user_id GROUP BY u.id;
+EOF
+    
+    # Create migration template
+    cat > "$HOME/.config/sqlite3/templates/migration_template.sql" << 'EOF'
+-- Migration: description_here
+-- Date: YYYY-MM-DD
+
+-- Up migration
+BEGIN TRANSACTION;
+
+-- Add your schema changes here
+-- ALTER TABLE table_name ADD COLUMN column_name TYPE;
+-- CREATE TABLE new_table (...);
+-- CREATE INDEX index_name ON table_name(column_name);
+
+COMMIT;
+
+-- Down migration (for rollback)
+-- BEGIN TRANSACTION;
+-- -- Reverse the changes
+-- ROLLBACK;
+EOF
+    
+    # Create useful queries template
+    cat > "$HOME/.config/sqlite3/templates/useful_queries.sql" << 'EOF'
+-- Useful SQLite Queries
+
+-- Database information
+SELECT * FROM sqlite_master WHERE type='table';
+SELECT * FROM sqlite_master WHERE type='index';
+PRAGMA table_info(table_name);
+PRAGMA foreign_key_list(table_name);
+PRAGMA index_list(table_name);
+
+-- Database statistics
+SELECT COUNT(*) FROM sqlite_master WHERE type='table';
+SELECT name, SUM(pgsize) as size FROM dbstat GROUP BY name ORDER BY size DESC;
+
+-- Find duplicate values
+SELECT column_name, COUNT(*) as count 
+FROM table_name 
+GROUP BY column_name 
+HAVING COUNT(*) > 1;
+
+-- Delete duplicates keeping one
+DELETE FROM table_name 
+WHERE rowid NOT IN (
+    SELECT MIN(rowid) 
+    FROM table_name 
+    GROUP BY duplicate_column
+);
+
+-- Copy table structure
+CREATE TABLE new_table AS SELECT * FROM old_table WHERE 0;
+
+-- Rename table
+ALTER TABLE old_name RENAME TO new_name;
+
+-- Add column with default value
+ALTER TABLE table_name ADD COLUMN column_name TYPE DEFAULT value;
+
+-- JSON operations (SQLite 3.38.0+)
+-- SELECT json_extract(json_column, '$.key') FROM table_name;
+-- UPDATE table_name SET json_column = json_set(json_column, '$.key', 'value');
+
+-- Full-text search setup
+-- CREATE VIRTUAL TABLE fts_table USING fts5(title, content);
+-- INSERT INTO fts_table SELECT title, content FROM original_table;
+-- SELECT * FROM fts_table WHERE fts_table MATCH 'search term';
+
+-- Common Table Expressions (CTE)
+WITH RECURSIVE cnt(x) AS (
+    SELECT 1
+    UNION ALL
+    SELECT x+1 FROM cnt WHERE x<10
+)
+SELECT x FROM cnt;
+
+-- Window functions
+-- SELECT name, score, RANK() OVER (ORDER BY score DESC) as rank FROM scores;
+-- SELECT *, LAG(value, 1) OVER (ORDER BY date) as prev_value FROM timeseries;
+EOF
+    
+    log_success "SQLite templates created"
+}
+
+# Main installation
+main() {
+    log_info "Setting up SQLite and related tools..."
+    
+    install_sqlite
+    install_litecli
+    install_sqlite_utils
+    install_datasette
+    install_sqlitebrowser
+    setup_sqlite_config
+    setup_sqlite_aliases
+    create_sqlite_templates
+    
+    log_success "SQLite setup complete!"
+    echo
+    echo "Installed tools:"
+    echo "  • sqlite3 - SQLite database engine"
+    echo "  • litecli - Enhanced CLI with auto-completion"
+    echo "  • sqlite-utils - CLI utility for SQLite"
+    echo "  • datasette - Web interface for SQLite"
+    echo "  • DB Browser - GUI for SQLite"
+    echo
+    echo "Configuration:"
+    echo "  • ~/.sqliterc - SQLite configuration"
+    echo "  • ~/.config/litecli/config - litecli configuration"
+    echo
+    echo "Quick commands:"
+    echo "  sqlite3 database.db     - Open database"
+    echo "  litecli database.db     - Enhanced CLI"
+    echo "  datasette database.db   - Web interface"
+    echo "  sqlitebrowser          - GUI browser"
+    echo
+    echo "Templates available in ~/.config/sqlite3/templates/"
+    echo
+    echo "Try: sqlite3 :memory: < ~/.config/sqlite3/templates/create_sample.sql"
+}
+
+main "$@"
