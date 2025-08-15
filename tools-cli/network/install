@@ -257,9 +257,7 @@ install_speedtest() {
     
     # Fallback to Python version
     if ! command -v speedtest &> /dev/null; then
-        if command -v pip3 &> /dev/null; then
-            pip3 install --user speedtest-cli
-        fi
+        safe_python_install speedtest-cli speedtest-cli
     fi
     
     log_success "speedtest installed"

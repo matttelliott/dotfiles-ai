@@ -59,14 +59,8 @@ install_httpie() {
             safe_sudo apt install -y httpie
             ;;
         *)
-            # Install via pip as fallback
-            if command -v pipx &> /dev/null; then
-                pipx install httpie
-            elif command -v pip3 &> /dev/null; then
-                pip3 install --user httpie
-            else
-                log_warning "Could not install HTTPie - pip required"
-            fi
+            # Install via safe Python install
+            safe_python_install httpie httpie
             ;;
     esac
     
@@ -90,7 +84,9 @@ install_httpie_plugins() {
         # Format plugins
         pipx inject httpie httpie-msgpack || true
     elif command -v pip3 &> /dev/null; then
-        pip3 install --user httpie-oauth httpie-jwt-auth httpie-msgpack 2>/dev/null || true
+        # Try to install plugins (may fail on externally managed systems)
+        pip3 install --user httpie-oauth httpie-jwt-auth httpie-msgpack 2>/dev/null || \
+        log_info "Cannot install plugins via pip (externally managed environment)"
     fi
     
     log_success "HTTPie plugins installed"

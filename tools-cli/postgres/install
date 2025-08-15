@@ -46,16 +46,22 @@ install_pgcli() {
         return 0
     fi
     
-    # Install via pip/pipx if available
-    if command -v pipx &> /dev/null; then
-        pipx install pgcli
-    elif command -v pip3 &> /dev/null; then
-        pip3 install --user pgcli
-    elif [[ "$OS" == "macos" ]] && command -v brew &> /dev/null; then
-        brew install pgcli
-    else
-        log_warning "Could not install pgcli - pip or pipx required"
-    fi
+    # Install pgcli
+    case "$OS" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install pgcli
+            else
+                safe_python_install pgcli pgcli
+            fi
+            ;;
+        debian|mint)
+            safe_python_install pgcli pgcli
+            ;;
+        *)
+            safe_python_install pgcli pgcli
+            ;;
+    esac
     
     log_success "pgcli installed"
 }

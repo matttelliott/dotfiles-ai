@@ -78,16 +78,8 @@ install_litecli() {
         return 0
     fi
     
-    # Install via pip/pipx if available
-    if command -v pipx &> /dev/null; then
-        pipx install litecli
-    elif command -v pip3 &> /dev/null; then
-        pip3 install --user litecli
-    elif command -v uv &> /dev/null; then
-        uv tool install litecli
-    else
-        log_warning "Could not install litecli - pip, pipx, or uv required"
-    fi
+    # Install litecli via safe Python install
+    safe_python_install litecli litecli
     
     log_success "litecli installed"
 }
@@ -100,16 +92,8 @@ install_sqlite_utils() {
         return 0
     fi
     
-    # Install via pip/pipx if available
-    if command -v pipx &> /dev/null; then
-        pipx install sqlite-utils
-    elif command -v pip3 &> /dev/null; then
-        pip3 install --user sqlite-utils
-    elif command -v uv &> /dev/null; then
-        uv tool install sqlite-utils
-    else
-        log_warning "Could not install sqlite-utils - pip, pipx, or uv required"
-    fi
+    # Install sqlite-utils via safe Python install
+    safe_python_install sqlite-utils sqlite-utils
     
     log_success "sqlite-utils installed"
 }
@@ -122,16 +106,8 @@ install_datasette() {
         return 0
     fi
     
-    # Install via pip/pipx if available
-    if command -v pipx &> /dev/null; then
-        pipx install datasette
-    elif command -v pip3 &> /dev/null; then
-        pip3 install --user datasette
-    elif command -v uv &> /dev/null; then
-        uv tool install datasette
-    else
-        log_warning "Could not install datasette - pip, pipx, or uv required"
-    fi
+    # Install datasette via safe Python install
+    safe_python_install datasette datasette
     
     log_success "datasette installed"
 }

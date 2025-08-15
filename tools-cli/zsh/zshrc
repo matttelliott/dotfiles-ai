@@ -1493,3 +1493,134 @@ basic-auth() {
     http -a "$user:$pass" "$@"
 }
 
+
+# Monitoring aliases
+alias top="htop"  # Use htop instead of top
+alias h="htop"
+alias bt="btop"
+alias g="glances"
+alias nc="ncdu"
+alias df="duf"
+alias ps="procs"
+
+# System monitoring shortcuts
+alias cpu="top -o cpu"
+alias mem="top -o mem"
+alias disk="ncdu /"
+alias net="sudo nethogs"
+alias io="sudo iotop"
+alias bandwidth="bmon"
+
+# Process management
+alias psg="ps aux | grep -v grep | grep"
+alias kill9="kill -9"
+alias killall="pkill"
+
+# System information
+sysinfo() {
+    echo "=== System Information ==="
+    uname -a
+    echo
+    echo "=== CPU ==="
+    lscpu 2>/dev/null || sysctl -n machdep.cpu.brand_string
+    echo
+    echo "=== Memory ==="
+    free -h 2>/dev/null || vm_stat
+    echo
+    echo "=== Disk ==="
+    df -h
+    echo
+    echo "=== Network ==="
+    ip a 2>/dev/null || ifconfig
+}
+
+# Monitor specific process
+monitor() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: monitor <process_name>"
+        return 1
+    fi
+    watch -n 1 "ps aux | grep -v grep | grep $1"
+}
+
+# Show top memory consumers
+topmem() {
+    ps aux | sort -rk 4 | head -n "${1:-10}"
+}
+
+# Show top CPU consumers
+topcpu() {
+    ps aux | sort -rk 3 | head -n "${1:-10}"
+}
+
+# Show disk usage by directory
+diskusage() {
+    du -sh "${1:-.}"/* | sort -rh | head -n "${2:-20}"
+}
+
+# Show open ports
+ports() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo lsof -iTCP -sTCP:LISTEN -P
+    else
+        sudo netstat -tulpn
+    fi
+}
+
+# Show system load
+load() {
+    uptime
+    echo
+    if command -v nproc &> /dev/null; then
+        echo "CPU cores: $(nproc)"
+    else
+        echo "CPU cores: $(sysctl -n hw.ncpu)"
+    fi
+}
+
+# Temperature monitoring (if available)
+temp() {
+    if command -v sensors &> /dev/null; then
+        sensors
+    elif [[ "$OSTYPE" == "darwin"* ]] && command -v osx-cpu-temp &> /dev/null; then
+        osx-cpu-temp
+    else
+        echo "Temperature monitoring not available"
+    fi
+}
+
+# Network connections
+connections() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        netstat -an | grep ESTABLISHED
+    else
+        ss -tunap | grep ESTAB
+    fi
+}
+
+# Watch disk I/O
+watchio() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo fs_usage -w
+    else
+        sudo iotop
+    fi
+}
+
+# System health check
+health() {
+    echo "=== System Health Check ==="
+    echo
+    echo "Load Average:"
+    uptime
+    echo
+    echo "Memory Usage:"
+    free -h 2>/dev/null || vm_stat | head -5
+    echo
+    echo "Disk Usage:"
+    df -h | grep -E "^/dev/"
+    echo
+    echo "Top Processes:"
+    ps aux | sort -rk 3 | head -5
+}
+
