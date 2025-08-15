@@ -3,14 +3,14 @@
 
 if command -v claude &> /dev/null; then
     # Quick Claude aliases
-    alias c='claude'
-    alias cask='claude ask'
-    alias ccode='claude code'
-    alias cfile='claude file'
-    alias cauth='claude auth'
+    alias claude_cli='claude'
+    alias claude_ask='claude ask'
+    alias claude_code='claude code'
+    alias claude_file='claude file'
+    alias claude_auth='claude auth'
     
     # Function to ask Claude about a file
-    caskfile() {
+    claude_askfile() {
         if [ -f "$1" ]; then
             claude ask "$(cat "$1")" "$2"
         else
@@ -19,7 +19,7 @@ if command -v claude &> /dev/null; then
     }
     
     # Function to get Claude's help with git commits
-    ccommit() {
+    claude_commit() {
         local changes=$(git diff --cached)
         if [ -n "$changes" ]; then
             claude ask "$changes" "Generate a concise git commit message for these changes"
@@ -29,12 +29,12 @@ if command -v claude &> /dev/null; then
     }
     
     # Function to ask Claude to explain a command
-    cexplain() {
+    claude_explain() {
         claude ask "Explain this command: $*"
     }
     
     # Function to ask Claude for code review
-    creview() {
+    claude_review() {
         if [ -f "$1" ]; then
             claude ask "$(cat "$1")" "Please review this code and suggest improvements"
         else
@@ -43,7 +43,7 @@ if command -v claude &> /dev/null; then
     }
     
     # Function to ask Claude to generate documentation
-    cdoc() {
+    claude_doc() {
         if [ -f "$1" ]; then
             claude ask "$(cat "$1")" "Generate documentation for this code"
         else
@@ -52,7 +52,7 @@ if command -v claude &> /dev/null; then
     }
     
     # Function to ask Claude to debug code
-    cdebug() {
+    claude_debug() {
         if [ -f "$1" ]; then
             claude ask "$(cat "$1")" "Help me debug this code and identify potential issues"
         else
