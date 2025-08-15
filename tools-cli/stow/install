@@ -7,6 +7,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../../utils/common.sh"
 
+detect_os
+
 install_stow() {
     if command -v stow &> /dev/null; then
         log_success "GNU Stow is already installed: $(stow --version | head -n1)"
@@ -19,8 +21,8 @@ install_stow() {
         macos)
             brew install stow
             ;;
-        debian)
-            safe_sudo apt-get update
+        debian|mint)
+            safe_apt_update
             safe_sudo apt-get install -y stow
             ;;
         fedora)

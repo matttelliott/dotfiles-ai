@@ -6,6 +6,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../../utils/common.sh"
 
+detect_os
+
 install_claude_cli() {
     log_info "Installing Claude CLI for AI-powered coding assistance..."
     

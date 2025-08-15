@@ -8,6 +8,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../../utils/common.sh"
 
+detect_os
+
 # Install ONLY the essential packages that other tools need
 install_base_packages() {
     log_info "Installing minimal base packages for Debian/Ubuntu..."

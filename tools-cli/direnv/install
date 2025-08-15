@@ -6,6 +6,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../../utils/common.sh"
 
+detect_os
+
 setup_shell_hook() {
     log_info "Setting up direnv shell hook..."
     
