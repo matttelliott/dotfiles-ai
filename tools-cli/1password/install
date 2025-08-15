@@ -6,6 +6,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../../utils/common.sh"
 
+detect_os
+
 COLOR_GREEN='\033[0;32m'
 COLOR_YELLOW='\033[1;33m'
 COLOR_RED='\033[0;31m'
@@ -141,10 +143,9 @@ configure_shell_integration() {
         touch "$shell_config"
     fi
     
-    local os_type=$(detect_os)
     local socket_path=""
     
-    if [[ "$os_type" == "macos" ]]; then
+    if [[ "$OS" == "macos" ]]; then
         socket_path='$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock'
     else
         socket_path='$HOME/.1password/agent.sock'
@@ -210,10 +211,9 @@ verify_installation() {
 main() {
     log_info "Starting 1Password setup..."
     
-    local os_type=$(detect_os)
-    log_info "Detected OS: $os_type"
+    log_info "Detected OS: $OS"
     
-    case "$os_type" in
+    case "$OS" in
         macos)
             install_1password_cli_macos
             setup_ssh_agent_macos
