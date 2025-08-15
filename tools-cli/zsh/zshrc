@@ -1624,3 +1624,262 @@ health() {
     ps aux | sort -rk 3 | head -5
 }
 
+
+# Network tool aliases
+alias n="nmap"
+alias ns="nmap -sn"  # Ping scan
+alias np="nmap -p"   # Port scan
+alias nv="nmap -sV"  # Version detection
+alias na="nmap -A"   # Aggressive scan
+
+# Port scanning
+scan-ports() {
+    # Quick port scan
+    local host="${1:-localhost}"
+    nmap -F "$host"
+}
+
+scan-all-ports() {
+    # Scan all ports
+    local host="${1:-localhost}"
+    nmap -p- "$host"
+}
+
+scan-tcp() {
+    # TCP scan
+    local host="${1:-localhost}"
+    nmap -sT "$host"
+}
+
+scan-udp() {
+    # UDP scan (requires root)
+    local host="${1:-localhost}"
+    sudo nmap -sU "$host"
+}
+
+scan-network() {
+    # Scan local network
+    local network="${1:-192.168.1.0/24}"
+    nmap -sn "$network"
+}
+
+# Netcat shortcuts
+alias nc-listen="nc -l"
+alias nc-scan="nc -zv"
+
+# Network testing
+test-port() {
+    # Test if port is open
+    local host="$1"
+    local port="$2"
+    nc -zv "$host" "$port"
+}
+
+http-server() {
+    # Quick HTTP server
+    local port="${1:-8000}"
+    python3 -m http.server "$port"
+}
+
+tcp-server() {
+    # Simple TCP server
+    local port="${1:-9999}"
+    nc -l "$port"
+}
+
+tcp-client() {
+    # Connect to TCP server
+    local host="$1"
+    local port="$2"
+    nc "$host" "$port"
+}
+
+# MTR (My TraceRoute)
+alias mtr="mtr --report-wide --show-ips"
+alias mtrr="mtr --report --report-cycles 30"
+
+trace() {
+    # Enhanced traceroute
+    local host="$1"
+    if command -v mtr &> /dev/null; then
+        mtr "$host"
+    else
+        traceroute "$host"
+    fi
+}
+
+# DNS tools
+alias d="dig"
+alias dx="dig +short"
+alias dns="dig +trace"
+
+dns-lookup() {
+    # DNS lookup with multiple tools
+    local domain="$1"
+    echo "=== nslookup ==="
+    nslookup "$domain"
+    echo
+    echo "=== dig ==="
+    dig "$domain"
+    echo
+    echo "=== host ==="
+    host "$domain"
+}
+
+reverse-dns() {
+    # Reverse DNS lookup
+    dig -x "$1"
+}
+
+# Network information
+myip() {
+    # Get public IP
+    curl -s ifconfig.me
+    echo
+}
+
+localip() {
+    # Get local IP
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        ifconfig | grep "inet " | grep -v 127.0.0.1 | awk "{print \$2}"
+    else
+        ip addr show | grep "inet " | grep -v 127.0.0.1 | awk "{print \$2}"
+    fi
+}
+
+ports() {
+    # Show listening ports
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo lsof -iTCP -sTCP:LISTEN -P
+    else
+        sudo netstat -tulpn
+    fi
+}
+
+connections() {
+    # Show network connections
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        netstat -an | grep ESTABLISHED
+    else
+        ss -tunap | grep ESTAB
+    fi
+}
+
+# Bandwidth testing
+speed() {
+    # Run speedtest
+    if command -v speedtest &> /dev/null; then
+        speedtest
+    elif command -v speedtest-cli &> /dev/null; then
+        speedtest-cli
+    else
+        echo "speedtest not installed"
+    fi
+}
+
+bandwidth() {
+    # Test bandwidth between hosts
+    local mode="${1:-server}"
+    if [[ "$mode" == "server" ]]; then
+        iperf3 -s
+    else
+        iperf3 -c "$1"
+    fi
+}
+
+# Packet capture
+capture() {
+    # Capture packets
+    local interface="${1:-any}"
+    local output="${2:-capture.pcap}"
+    sudo tcpdump -i "$interface" -w "$output"
+}
+
+capture-http() {
+    # Capture HTTP traffic
+    sudo tcpdump -i any -s 0 -A "tcp port 80"
+}
+
+capture-dns() {
+    # Capture DNS queries
+    sudo tcpdump -i any -s 0 port 53
+}
+
+# WHOIS shortcuts
+alias w="whois"
+
+whois-ip() {
+    whois "$1" | grep -E "(OrgName|NetRange|CIDR|Country)"
+}
+
+# Socat examples
+proxy-tcp() {
+    # TCP proxy
+    local lport="$1"
+    local rhost="$2"
+    local rport="$3"
+    socat TCP-LISTEN:"$lport",fork TCP:"$rhost":"$rport"
+}
+
+# RustScan (if installed)
+if command -v rustscan &> /dev/null; then
+    alias rs="rustscan"
+    alias rscan="rustscan -a"
+    
+    fast-scan() {
+        rustscan -a "$1" -- -A -sC -sV
+    }
+fi
+
+# Network debugging
+net-debug() {
+    local host="${1:-google.com}"
+    echo "=== Ping ==="
+    ping -c 4 "$host"
+    echo
+    echo "=== Traceroute ==="
+    traceroute "$host"
+    echo
+    echo "=== DNS ==="
+    dig "$host"
+    echo
+    echo "=== Port 80/443 ==="
+    nc -zv "$host" 80
+    nc -zv "$host" 443
+}
+
+
+# PostgreSQL aliases
+alias psql="psql -U postgres"
+alias pg="psql"
+alias pgd="psql -d"
+alias pgl="psql -l"  # List databases
+alias pgdu="psql -c \"SELECT datname, pg_size_pretty(pg_database_size(datname)) FROM pg_database ORDER BY pg_database_size(datname) DESC;\""  # Database sizes
+alias pgt="psql -c \"SELECT schemaname,tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema');\""  # List tables
+
+# PostgreSQL functions
+pgconnect() {
+    # Connect with common format
+    psql "postgresql://${1:-localhost}:${2:-5432}/${3:-postgres}?user=${4:-postgres}"
+}
+
+pgdump() {
+    # Dump database
+    pg_dump -U postgres -h localhost -d "$1" -f "${1}_$(date +%Y%m%d_%H%M%S).sql"
+}
+
+pgrestore() {
+    # Restore database
+    psql -U postgres -h localhost -d "$1" -f "$2"
+}
+
+pgsize() {
+    # Get table sizes
+    psql -U postgres -d "$1" -c "SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size FROM pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema') ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC LIMIT 20;"
+}
+
+pgkill() {
+    # Kill query by PID
+    psql -U postgres -c "SELECT pg_terminate_backend($1);"
+}
+

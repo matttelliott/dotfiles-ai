@@ -77,8 +77,41 @@ safe_apt_update() {
         return 1
     else
         # Run apt update but don't fail on repository errors
-        sudo apt-get update 2>&1 | grep -v "^E: The repository" | grep -v "^W:" || true
+        # Suppress common warnings and errors that don't affect functionality
+        sudo apt-get update 2>&1 | \
+            grep -v "^E: The repository.*does not have a Release file" | \
+            grep -v "^W:.*Key is stored in legacy trusted.gpg" | \
+            grep -v "^W:.*Target.*is configured multiple times" | \
+            grep -v "^N: Updating from such a repository" | \
+            grep -v "^N: See apt-secure" || true
+        
+        # Return success even if there were repository warnings
         return 0
+    fi
+}
+
+# Fix common APT repository issues for Linux Mint
+fix_mint_repos() {
+    # Only run on Linux Mint
+    if [[ "$OS" != "mint" ]]; then
+        return 0
+    fi
+    
+    log_info "Checking for repository issues..."
+    
+    # Fix PostgreSQL repository (Mint uses Ubuntu base)
+    if grep -q "wilma-pgdg" /etc/apt/sources.list.d/*.list 2>/dev/null; then
+        log_info "Fixing PostgreSQL repository for Mint..."
+        # Mint 22 is based on Ubuntu 24.04 (noble)
+        sudo sed -i 's/wilma-pgdg/noble-pgdg/g' /etc/apt/sources.list.d/*.list 2>/dev/null || true
+    fi
+    
+    # Note about Chrome repository
+    if grep -q "dl.google.com" /etc/apt/sources.list.d/*.list 2>/dev/null; then
+        if ! grep -q "signed-by=" /etc/apt/sources.list.d/*google*.list 2>/dev/null; then
+            log_info "Note: Chrome repository uses legacy apt-key format"
+            log_info "This warning can be safely ignored"
+        fi
     fi
 }
 
