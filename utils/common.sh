@@ -56,7 +56,8 @@ detect_os() {
 
 # Check if running in CI/non-interactive mode
 is_ci() {
-    [[ -n "$CI" ]] || [[ -n "$GITHUB_ACTIONS" ]] || [[ ! -t 0 ]]
+    # Check for explicit CI environment variables
+    [[ -n "$CI" ]] || [[ -n "$GITHUB_ACTIONS" ]] || [[ -n "$JENKINS_HOME" ]] || [[ -n "$GITLAB_CI" ]]
 }
 
 # Safe sudo that handles CI environments
