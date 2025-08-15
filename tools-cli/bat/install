@@ -8,6 +8,37 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
+install_bat() {
+    log_info "Installing bat..."
+    
+    if command -v bat &> /dev/null; then
+        log_info "bat is already installed: $(bat --version)"
+        return 0
+    fi
+    
+    case "$OS" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install bat
+            else
+                install_from_github
+            fi
+            ;;
+        debian|mint)
+            # Try apt first
+            if safe_sudo apt install -y bat 2>/dev/null; then
+                log_success "bat installed via apt"
+            else
+                # Fall back to GitHub releases
+                install_from_github
+            fi
+            ;;
+        *)
+            install_from_github
+            ;;
+    esac
+}
+
 install_from_github() {
     log_info "Installing bat from GitHub releases..."
     
@@ -50,7 +81,7 @@ install_from_github() {
     BAT_BIN=$(find . -name "bat" -type f | head -n1)
     if [[ -n "$BAT_BIN" ]]; then
         safe_sudo mv "$BAT_BIN" /usr/local/bin/bat
-        sudo chmod +x /usr/local/bin/bat
+        safe_sudo chmod +x /usr/local/bin/bat
         log_success "bat installed to /usr/local/bin/bat"
     else
         log_warning "Could not find bat binary in archive"
