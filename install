@@ -138,7 +138,9 @@ install_tool() {
     if command -v stow &> /dev/null; then
         if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
             log_info "Stowing $tool_name configs..."
-            (cd "$STOW_DIR" && stow -t "$TARGET_DIR" -R "$tool_path")
+            # Get the relative path from STOW_DIR to tool_path
+            local rel_path="${tool_path#$STOW_DIR/}"
+            (cd "$STOW_DIR" && stow -t "$TARGET_DIR" -R "$rel_path")
             log_success "$tool_name configs linked"
         fi
     else
