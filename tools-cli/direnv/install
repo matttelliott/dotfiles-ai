@@ -8,6 +8,60 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
+install_direnv() {
+    log_info "Installing direnv..."
+    
+    if command -v direnv &> /dev/null; then
+        log_info "direnv is already installed: $(direnv version)"
+        return 0
+    fi
+    
+    case "$OS" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install direnv
+            else
+                log_warning "Please install Homebrew first or install direnv manually"
+                exit 1
+            fi
+            ;;
+        debian|mint)
+            safe_apt_update
+            safe_sudo apt install -y direnv
+            ;;
+        *)
+            # Install from binary release
+            log_info "Installing direnv from GitHub releases..."
+            ARCH=$(uname -m)
+            case "$ARCH" in
+                x86_64)
+                    ARCH_STRING="amd64"
+                    ;;
+                aarch64|arm64)
+                    ARCH_STRING="arm64"
+                    ;;
+                *)
+                    log_warning "Unsupported architecture: $ARCH"
+                    exit 1
+                    ;;
+            esac
+            
+            # Get latest version
+            LATEST_VERSION=$(curl -s https://api.github.com/repos/direnv/direnv/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+            
+            # Download and install
+            DOWNLOAD_URL="https://github.com/direnv/direnv/releases/download/v${LATEST_VERSION}/direnv.linux-${ARCH_STRING}"
+            log_info "Downloading from: $DOWNLOAD_URL"
+            
+            curl -L -o /tmp/direnv "$DOWNLOAD_URL"
+            safe_sudo mv /tmp/direnv /usr/local/bin/direnv
+            safe_sudo chmod +x /usr/local/bin/direnv
+            ;;
+    esac
+    
+    log_success "direnv installed"
+}
+
 setup_shell_hook() {
     log_info "Setting up direnv shell hook..."
     
