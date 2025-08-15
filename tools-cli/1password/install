@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# 1Password CLI setup
+# NOTE: This installer modifies existing configs directly and does NOT use stow
+# SSH keys and agent configs are machine-specific and should never be in the repo
 
 set -e
 

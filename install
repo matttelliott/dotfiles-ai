@@ -135,7 +135,8 @@ install_tool() {
     fi
     
     # Use stow for any config files (if stow is available)
-    if command -v stow &> /dev/null; then
+    # Skip 1password as it manages its own configs directly
+    if command -v stow &> /dev/null && [[ "$tool_name" != "1password" ]]; then
         if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
             log_info "Stowing $tool_name configs..."
             # Need to cd to the category directory for stow to work
