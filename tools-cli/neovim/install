@@ -1,5 +1,5 @@
 #!/bin/bash
-# Neovim setup script
+# Neovim installation script
 
 set -e
 
@@ -164,27 +164,6 @@ install_neovim() {
     log_success "Neovim installed: $(nvim --version | head -n1)"
 }
 
-setup_neovim_config() {
-    log_info "Setting up Neovim configuration..."
-    
-    # Get the directory where this script is located
-    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    
-    # Backup existing config if it exists
-    if [[ -d "$HOME/.config/nvim" ]]; then
-        backup_dir="$HOME/.config/nvim.backup.$(date +%Y%m%d_%H%M%S)"
-        log_warning "Backing up existing Neovim config to $backup_dir"
-        mv "$HOME/.config/nvim" "$backup_dir"
-    fi
-    
-    # Create config directory
-    mkdir -p "$HOME/.config"
-    
-    # Create symlink to our neovim config
-    ln -sf "$SCRIPT_DIR" "$HOME/.config/nvim"
-    log_success "Neovim configuration linked"
-}
-
 install_dependencies() {
     log_info "Installing Neovim dependencies..."
     
@@ -232,15 +211,15 @@ install_dependencies() {
 
 # Main installation
 main() {
-    log_info "Setting up Neovim..."
+    log_info "Installing Neovim..."
     
     check_dependencies
     install_neovim
-    setup_neovim_config
     install_dependencies
     
-    log_success "Neovim setup complete!"
+    log_success "Neovim installation complete!"
     echo
+    echo "Configuration will be managed by GNU Stow"
     echo "Run 'nvim' and wait for plugins to install automatically"
     echo "Some language servers may need additional setup"
 }

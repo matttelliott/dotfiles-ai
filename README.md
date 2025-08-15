@@ -1,244 +1,218 @@
-# Dotfiles-AI
+# dotfiles-ai
 
-A comprehensive, modular dotfiles repository with 40+ developer tools, modern CLI utilities, and complete development environment setup for macOS and Linux.
+A comprehensive, modular dotfiles configuration repository for developer tools across macOS and Debian-based Linux platforms.
 
-## Supported Platforms
-- macOS (Darwin)
-- Debian/Ubuntu Linux
-- Linux Mint
+## Features
 
-## What's Included
+- **30+ CLI tools** - Modern replacements for traditional Unix tools (ripgrep, fd, fzf, bat, eza, etc.)
+- **Programming languages** - Node.js, Python, Rust, Go, Ruby with version managers
+- **Cloud tools** - AWS CLI, Google Cloud SDK, Terraform, Kubernetes tools
+- **Development tools** - Docker, Git enhancements, database clients, and more
+- **Modular architecture** - Each tool is self-contained with its own installer
+- **Cross-platform** - Supports macOS and Debian-based Linux distributions
+- **Idempotent** - Safe to re-run installers multiple times
 
-### 🛠️ Core Development Tools
-- **Neovim**: Modern editor with LSP, treesitter, and AI integrations
-- **tmux**: Terminal multiplexer with custom configuration
-- **zsh**: Advanced shell with oh-my-zsh and extensive aliases
-- **Starship**: Cross-shell prompt with git integration
-- **1Password**: CLI and SSH agent for secure credential management
-
-### 🔍 Modern CLI Tools (30+)
-- **Search & Navigation**: ripgrep, fd, fzf, zoxide, broot
-- **File Management**: eza (ls replacement), bat (cat with syntax highlighting)
-- **Git Tools**: lazygit, git-delta, GitHub CLI
-- **Development**: jq, yq, httpie, curl, entr (file watcher)
-- **Database Clients**: PostgreSQL (pgcli), SQLite (litecli), datasette
-- **Cloud Tools**: AWS CLI v2, Google Cloud SDK, Terraform
-- **Container Tools**: Docker, Docker Compose, Kubernetes (kubectl, helm, k9s)
-
-### 🚀 Programming Languages
-- **Node.js**: via nvm with global packages (yarn, pnpm, typescript)
-- **Python**: via uv (10-100x faster) with pyenv fallback
-- **Rust**: via rustup with cargo extensions
-- **Go**: Latest version with essential tools
-- **Ruby**: via rbenv with Rails and common gems
-
-### 🎨 Terminal Enhancement
-- **Terminal**: gnome-terminal (Linux) / iTerm2 (macOS)
-- **Theme**: Tokyo Night across all tools
-- **Fonts**: JetBrains Mono, Fira Code support
-- **Keyboard**: CapsLock → Ctrl remapping
-
-## Quick Install
+## Quick Start
 
 ```bash
-git clone https://github.com/yourusername/dotfiles-ai.git ~/dotfiles-ai
-cd ~/dotfiles-ai
+# Clone the repository
+git clone https://github.com/yourusername/dotfiles-ai.git
+cd dotfiles-ai
 
-# Full installation (all tools)
-./install.sh
+# Run the main installer (installs everything)
+./install
 
-# Or install selectively:
-./install-cli.sh   # CLI tools only
-./install-gui.sh   # GUI applications only
-
-# After installation, run the setup wizard:
-./post-install.sh
+# Or install only what you need:
+./install cli        # CLI tools only
+./install gui        # GUI applications only
+./install neovim     # Just Neovim
+./install neovim zsh # Multiple specific tools
 ```
 
-The installation is modular and idempotent - safe to run multiple times.
+## Installation Options
 
-## Post-Install Wizard
-
-After running `install.sh`, use the interactive wizard to complete setup:
-
+### Full Installation
+Installs all CLI tools, programming languages, and system configurations:
 ```bash
-./post-install.sh
+./install         # or ./install all
 ```
 
-The wizard will guide you through:
-- 🔐 1Password CLI authentication and SSH key generation
-- 🔑 SSH key setup for GitHub, GitLab, etc.
-- 📦 Git configuration (name, email, defaults)
-- 🤖 Claude CLI token setup
-- 📝 Neovim plugin installation
-- 🖥️ Tmux plugin installation
-
-## Individual Tool Installation
-
-Each tool can be installed independently:
-
+### Selective Installation
+Install specific categories or tools:
 ```bash
-# Install a specific tool
-./tools-cli/ripgrep/setup.sh
-./tools-cli/docker/setup.sh
-./tools-lang/python/setup.sh
-
-# Install by category
-for tool in tools-cli/*/setup.sh; do
-  $tool
-done
+./install cli            # All CLI tools
+./install gui            # All GUI applications  
+./install lang           # All programming languages
+./install neovim         # Just Neovim
+./install docker k9s     # Multiple specific tools
 ```
 
-## Repository Structure
+### Manual Symlink Management
+The installer uses GNU Stow for managing configuration symlinks:
+```bash
+# Manually link configs for a tool
+stow -t ~ tools-cli/neovim
+
+# Remove configs
+stow -D -t ~ tools-cli/neovim  
+
+# See what would be linked without doing it
+stow -n -v -t ~ tools-cli/neovim
+```
+
+## Tool Categories
+
+### CLI Tools
+Modern, fast alternatives to traditional Unix tools:
+- **Search & Find**: ripgrep, fd, fzf, The Silver Searcher
+- **File Management**: eza (ls replacement), bat (cat replacement), zoxide (cd replacement)
+- **Git Enhancements**: lazygit, git-delta, GitHub CLI
+- **Development**: jq, yq, httpie, entr (file watcher)
+- **Shell**: Starship prompt, Atuin (shell history), tmux
+- **System**: htop, ncdu, 1Password CLI
+
+### Programming Languages
+Version-managed installations with common tools:
+- **Node.js** - via nvm with npm packages
+- **Python** - via uv (primary) or pyenv with pip packages
+- **Rust** - via rustup with cargo packages
+- **Go** - direct installation with go modules
+- **Ruby** - via rbenv with gem packages
+
+### Cloud & DevOps
+- **AWS** - AWS CLI v2 with common profiles
+- **Google Cloud** - gcloud SDK with components
+- **Docker** - Container runtime and compose
+- **Kubernetes** - kubectl, helm, k9s
+
+### Database Tools
+- PostgreSQL client (psql)
+- SQLite with enhanced CLI
+- Database migration tools
+
+## Configuration Files
+
+The repository includes configurations for:
+- **Shell**: zsh and bash with aliases and functions
+- **Git**: Global gitconfig with useful aliases
+- **Editors**: Neovim with modern plugins
+- **Terminal**: tmux with sensible defaults
+- **Tools**: Individual tool configurations
+
+## Platform Support
+
+| Platform | Support | Package Manager |
+|----------|---------|-----------------|
+| macOS | ✅ Full | Homebrew |
+| Ubuntu/Debian | ✅ Full | apt, binary downloads |
+| Fedora/RHEL | ⚠️ Partial | dnf (limited) |
+| Windows WSL | ✅ Full | apt |
+| Other Linux | ⚠️ Varies | Binary downloads |
+
+## Directory Structure
 
 ```
 dotfiles-ai/
-├── install.sh              # Main installer orchestrator
-├── install-cli.sh          # CLI tools installer
-├── install-gui.sh          # GUI applications installer
-├── post-install.sh         # Interactive setup wizard
-├── CLAUDE.md              # AI assistant context
-├── system/                # System-level configurations
-│   ├── macos/            # macOS-specific setup
-│   └── debian/           # Debian/Ubuntu setup
-├── tools-cli/            # CLI tool modules (30+ tools)
-│   ├── ripgrep/         # Each tool has:
-│   │   ├── setup.sh     # - Installation script
-│   │   └── README.md    # - Documentation
-│   ├── fd/
-│   ├── bat/
-│   ├── httpie/
-│   ├── aws/
-│   ├── gcloud/
-│   ├── docker/
-│   ├── kubernetes/
-│   └── ...              # And many more
-├── tools-gui/           # GUI application modules
-│   └── browsers/        # Browser configurations
-├── tools-lang/          # Programming languages
-│   ├── node/           # Node.js via nvm
-│   ├── python/         # Python via uv/pyenv
-│   ├── rust/           # Rust via rustup
-│   ├── go/             # Go installation
-│   └── ruby/           # Ruby via rbenv
-├── 1password/          # 1Password integration
-├── claude/             # Claude CLI setup
-├── nvim/               # Neovim configuration
-├── tmux/               # tmux configuration
-└── zsh/                # Zsh configuration
+├── install                 # Main installer script
+├── system/
+│   ├── macos/             # macOS-specific setup
+│   └── debian/            # Debian/Ubuntu setup
+├── tools-cli/             # CLI tool modules
+│   └── neovim/            # Example tool structure
+│       ├── install        # Installation script
+│       ├── .config/       # Stow-managed configs
+│       │   └── nvim/
+│       │       └── init.lua
+│       └── README.md      # Documentation
+├── tools-gui/             # GUI applications
+└── tools-lang/            # Programming languages
 ```
 
-## Key Features
+### How It Works
 
-### 🎯 Modular Architecture
-- Each tool is self-contained with its own setup script
-- Install individual tools or everything at once
-- No cross-dependencies between modules
-- Platform-specific installations handled automatically
-
-### ⚡ Performance Focused
-- **uv** for Python - 10-100x faster than pip
-- **ripgrep** - Blazingly fast search
-- **fd** - Fast alternative to find
-- **eza** - Modern, fast ls replacement
-- **zoxide** - Smarter cd command
-
-### 🔧 Developer Productivity
-- Comprehensive aliases and functions for all tools
-- Pre-configured templates and examples
-- Integrated file watchers and auto-reload
-- Modern HTTP clients for API testing
-- Database clients with auto-completion
-
-## Tool Highlights
-
-### 1Password Integration
-- **Secure SSH key management** - Generate and store SSH keys in 1Password vault
-- **SSH agent integration** - Automatic SSH authentication via 1Password
-- **CLI authentication** - Biometric unlock support for CLI operations
-- **Helper functions**:
-  - `op-add-ssh-key` - Generate new SSH keys
-  - `op-get-password` - Retrieve passwords from vault
-  - `op-list-ssh-keys` - List all SSH keys
-- **Cross-platform support** - Works on macOS, Debian, and Linux Mint
-
-### Neovim
-- LSP support for multiple languages
-- AI-powered code completion
-- Modern plugin management with lazy.nvim
-- Treesitter syntax highlighting
-- File explorer and fuzzy finding
-- Tokyo Night color scheme
-
-### tmux
-- Sensible defaults with Ctrl-a prefix
-- Custom key bindings for better workflow
-- Status bar with system info and battery status
-- Session management helpers
-- Plugin support via TPM
-- Tokyo Night themed
-
-### zsh
-- oh-my-zsh integration
-- Custom aliases and functions
-- Git integration and shortcuts
-- Auto-completion enhancements
-- Automatic tmux session management
-- 1Password CLI integration
-
-### Keyboard Configuration
-- CapsLock automatically bound to Ctrl across all platforms
-- Cross-platform support (Linux X11/Wayland, macOS)
-- Persistent configuration with system integration
-- Enhanced developer ergonomics and productivity
-
-### Claude CLI
-- AI-powered coding assistance from the terminal
-- Integrated aliases and helper functions
-- Git commit message generation
-- Code explanation and documentation
-- File analysis and code review
-- Token management system
-
-### Terminal Enhancements
-- **Starship prompt** - Fast, customizable prompt with git integration
-- **Tokyo Night theme** - Consistent color scheme across all tools
-- **gnome-terminal** setup script for Linux
-- Modern font support (JetBrains Mono, Fira Code)
-
-## Notable Tool Configurations
-
-### Cloud Development
-- **AWS CLI v2** with SSO, aws-vault, SAM CLI, eksctl
-- **Google Cloud SDK** with all components, Cloud SQL Proxy, Terraform
-- Pre-configured aliases and helper functions for both platforms
-
-### Container & Orchestration
-- **Docker** with Docker Compose, lazydocker, dive, ctop
-- **Kubernetes** tools: kubectl, helm, k9s, kubectx, stern
-- **Colima** as Docker Desktop alternative on macOS
-
-### Modern CLI Replacements
-- `ls` → `eza` (with git integration and tree view)
-- `cat` → `bat` (with syntax highlighting)
-- `find` → `fd` (faster and user-friendly)
-- `grep` → `ripgrep` (much faster)
-- `cd` → `zoxide` (smart directory jumping)
-- `ctrl-r` → `atuin` (better shell history)
-
-### File Watching & Automation
-- **entr** - Run commands when files change
-- Pre-configured watchers for testing, building, and reloading
-- Integration with all major build tools and test runners
+1. **Unified Installer**: Single `./install` script handles everything
+2. **GNU Stow**: Automatically manages configuration symlinks
+3. **Modular Tools**: Each tool has its own `install` script and config directory
+4. **Smart Symlinking**: Configs in stow-compatible structure (`.config/`, `.zshrc`, etc.)
 
 ## Customization
 
-All configurations are modular and easily customizable:
-- Shell aliases in each tool's setup script
-- Configuration files in tool directories
-- Templates in `~/.config/[tool]/templates/`
-- Comprehensive README in each tool directory
+### Adding New Tools
+
+1. Create a directory: `tools-cli/toolname/`
+2. Add `install` script (no .sh extension) for software installation
+3. Put configs in stow-compatible paths:
+   - `.config/toolname/` for XDG configs
+   - `.toolrc` for dotfiles in home directory
+4. Include a `README.md` with documentation
+5. The main installer will handle stow automatically
+
+### Modifying Configurations
+
+Edit configuration files directly in the repository. Changes will be applied on next installation or can be manually symlinked.
+
+## Development
+
+### Testing
+```bash
+# Test in Docker container
+docker run -it ubuntu:latest
+# Mount and run installer
+
+# Test individual tools
+./tools-cli/ripgrep/setup.sh
+```
+
+### Contributing
+
+1. Follow the modular architecture pattern
+2. Support both macOS and Debian platforms
+3. Make installers idempotent
+4. Include comprehensive documentation
+5. Test on clean systems
+
+## Requirements
+
+### Minimum Requirements
+- **macOS**: 10.15+ with Xcode Command Line Tools
+- **Linux**: Ubuntu 20.04+ or Debian 10+
+- **Memory**: 2GB RAM
+- **Disk**: 5GB free space
+
+### Prerequisites
+- Git
+- curl or wget
+- sudo access (for system packages)
+
+## Troubleshooting
+
+### Common Issues
+
+**Homebrew not found (macOS)**
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+**Permission denied**
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+**Tool already installed**
+The installers are idempotent and will skip already installed tools.
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT - See LICENSE file for details
+
+## Acknowledgments
+
+Built with inspiration from:
+- The Unix philosophy of small, composable tools
+- Modern CLI renaissance projects
+- The dotfiles community
+
+## Support
+
+For issues, questions, or contributions, please open an issue on GitHub.

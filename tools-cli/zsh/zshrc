@@ -229,3 +229,681 @@ export PATH="$PATH:$GOPATH/bin"
 # Python environment
 export PYTHONPATH="$HOME/.local/lib/python3.9/site-packages:$PYTHONPATH"
 export PATH="$HOME/.local/bin:$PATH"
+
+# fzf configuration
+[ -f ~/.config/fzf/fzf.zsh ] && source ~/.config/fzf/fzf.zsh
+
+# bat configuration
+export BAT_CONFIG_PATH="$HOME/.config/bat/config"
+
+# bat aliases
+alias cat="bat"
+alias catp="bat -p"           # plain output (no line numbers)
+alias catl="bat -l"           # specify language
+alias catn="bat --style=numbers"  # only line numbers
+alias batdiff="bat --diff"    # show diff
+alias batman="bat --language=man"  # syntax highlight man pages
+
+# Use bat as manpager
+export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+
+# bat + fzf integration
+alias batf="fzf --preview 'bat --color=always --style=numbers --line-range=:500 {}'"
+
+
+# direnv hook
+eval "$(direnv hook zsh)"
+
+# direnv aliases
+alias da="direnv allow"
+alias db="direnv block"
+alias dr="direnv reload"
+alias de="direnv edit"
+alias ds="direnv status"
+alias dp="direnv prune"
+
+# direnv helper functions
+direnv-init() {
+    # Initialize .envrc in current directory
+    if [[ -f .envrc ]]; then
+        echo ".envrc already exists"
+        return 1
+    fi
+    
+    echo "# direnv configuration" > .envrc
+    echo "# https://direnv.net/man/direnv-stdlib.1.html" >> .envrc
+    echo "" >> .envrc
+    echo "# Load .env file if it exists" >> .envrc
+    echo "dotenv_if_exists" >> .envrc
+    echo "" >> .envrc
+    echo "# Project-specific configuration" >> .envrc
+    echo "export PROJECT_NAME=\"$(basename $PWD)\"" >> .envrc
+    
+    direnv allow
+    echo "Created and allowed .envrc"
+}
+
+direnv-python() {
+    # Create Python layout
+    echo "layout python" >> .envrc
+    direnv allow
+}
+
+direnv-node() {
+    # Create Node.js layout
+    echo "layout node" >> .envrc
+    direnv allow
+}
+
+direnv-go() {
+    # Create Go layout
+    echo "layout go" >> .envrc
+    direnv allow
+}
+
+direnv-docker() {
+    # Setup Docker environment
+    cat >> .envrc << 'ENVRC'
+# Docker environment
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+export COMPOSE_PROJECT_NAME="$(basename $PWD)"
+ENVRC
+    direnv allow
+}
+
+direnv-aws() {
+    # Setup AWS profile
+    local profile="${1:-default}"
+    echo "use_aws $profile" >> .envrc
+    direnv allow
+}
+
+direnv-secrets() {
+    # Create .env template for secrets
+    if [[ ! -f .env ]]; then
+        cat > .env << 'ENV'
+# Environment variables
+# Copy to .env.local and fill in values
+
+DATABASE_URL=postgresql://user:pass@localhost/dbname
+REDIS_URL=redis://localhost:6379
+SECRET_KEY=change-me
+API_KEY=
+ENV
+        echo "Created .env template"
+    fi
+    
+    if [[ ! -f .env.local ]]; then
+        cp .env .env.local
+        echo "Created .env.local - add your secrets here"
+    fi
+    
+    echo "dotenv_if_exists .env.local" >> .envrc
+    echo ".env.local" >> .gitignore
+    direnv allow
+}
+
+direnv-clean() {
+    # Clean direnv cache
+    rm -rf .direnv
+    direnv reload
+    echo "Cleaned direnv cache"
+}
+
+direnv-debug() {
+    # Debug current environment
+    direnv status
+    echo ""
+    echo "Loaded variables:"
+    direnv export bash | jq -r 'keys[]'
+}
+
+
+# eza - modern ls replacement
+alias ls="eza --icons --group-directories-first"
+alias ll="eza --icons --group-directories-first -l"
+alias la="eza --icons --group-directories-first -la"
+alias lt="eza --icons --group-directories-first --tree"
+alias l="eza --icons --group-directories-first -la"
+
+# eza specific aliases
+alias ld="eza -lD"                    # directories only
+alias lf="eza -lf --color=always | grep -v /"  # files only
+alias lh="eza -dl .* --group-directories-first"  # hidden files
+alias ll="eza -al --group-directories-first"     # all files, long format
+alias ls="eza -a --group-directories-first"      # all files
+alias lt="eza --tree --level=2"       # tree view, 2 levels
+alias lx="eza -lbhHgmuSa"            # extended details
+alias lz="eza -la --sort=size"       # sort by size
+alias lt="eza -la --sort=modified"   # sort by modification time
+
+# Git-aware aliases
+alias lg="eza -la --git --git-ignore" # show git status
+alias ltg="eza --tree --git-ignore"   # tree respecting gitignore
+
+
+# fd aliases
+alias fdd='fd --type d'      # directories only
+alias fdf='fd --type f'      # files only
+alias fdh='fd --hidden'      # include hidden files
+alias fde='fd --extension'   # search by extension
+alias fdi='fd --ignore-case' # case insensitive
+alias fdx='fd --type x'      # executable files
+alias fds='fd --size'        # filter by size
+
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/matt/google-cloud-sdk/path.zsh.inc' ]; then . '/home/matt/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/matt/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/matt/google-cloud-sdk/completion.zsh.inc'; fi
+
+# Google Cloud aliases
+alias gc="gcloud"
+alias gcl="gcloud config list"
+alias gcp="gcloud config set project"
+alias gcauth="gcloud auth login"
+alias gcconf="gcloud config configurations"
+
+# Compute Engine
+alias gce="gcloud compute"
+alias gcels="gcloud compute instances list"
+alias gcestart="gcloud compute instances start"
+alias gcestop="gcloud compute instances stop"
+alias gcessh="gcloud compute ssh"
+alias gcedisks="gcloud compute disks list"
+
+# Container/Kubernetes
+alias gke="gcloud container"
+alias gkels="gcloud container clusters list"
+alias gkeget="gcloud container clusters get-credentials"
+
+# Cloud Storage
+alias gcs="gsutil"
+alias gcsls="gsutil ls"
+alias gcscp="gsutil cp"
+alias gcsmv="gsutil mv"
+alias gcsrm="gsutil rm"
+alias gcsrsync="gsutil rsync"
+alias gcsmb="gsutil mb"  # make bucket
+alias gcsrb="gsutil rb"  # remove bucket
+
+# Cloud Functions
+alias gcf="gcloud functions"
+alias gcfls="gcloud functions list"
+alias gcfdeploy="gcloud functions deploy"
+alias gcflogs="gcloud functions logs read"
+
+# Cloud Run
+alias gcr="gcloud run"
+alias gcrls="gcloud run services list"
+alias gcrdeploy="gcloud run deploy"
+
+# App Engine
+alias gae="gcloud app"
+alias gaedeploy="gcloud app deploy"
+alias gaelogs="gcloud app logs tail"
+alias gaebrowse="gcloud app browse"
+
+# BigQuery
+alias bq="bq"
+alias bqls="bq ls"
+alias bqquery="bq query"
+
+# Pub/Sub
+alias gpub="gcloud pubsub"
+alias gpubtopics="gcloud pubsub topics list"
+alias gpubsubs="gcloud pubsub subscriptions list"
+
+# IAM
+alias giam="gcloud iam"
+alias giamls="gcloud iam service-accounts list"
+alias giamroles="gcloud iam roles list"
+
+# Projects
+alias gprojects="gcloud projects list"
+alias gproject="gcloud config get-value project"
+
+# Billing
+alias gbilling="gcloud billing"
+alias gbillingls="gcloud billing accounts list"
+
+# Functions
+gcpset() {
+    # Set project
+    gcloud config set project "$1"
+    echo "Project set to: $1"
+}
+
+gcpactivate() {
+    # Activate service account
+    gcloud auth activate-service-account --key-file="$1"
+}
+
+gceconnect() {
+    # SSH to instance
+    gcloud compute ssh "$1" --zone="${2:-us-central1-a}"
+}
+
+gcetunnel() {
+    # Create SSH tunnel
+    local instance="$1"
+    local port="${2:-8080}"
+    gcloud compute ssh "$instance" -- -L "$port:localhost:$port"
+}
+
+gkelogs() {
+    # Get GKE cluster logs
+    local cluster="$1"
+    gcloud container clusters get-credentials "$cluster"
+    kubectl logs -f "$2"
+}
+
+gcscopy() {
+    # Copy between buckets
+    gsutil -m cp -r "gs://$1/*" "gs://$2/"
+}
+
+gcssize() {
+    # Get bucket size
+    gsutil du -sh "gs://$1"
+}
+
+gcost() {
+    # Get cost estimate for current month
+    local project="${1:-$(gcloud config get-value project)}"
+    gcloud billing budgets list --billing-account="$(gcloud billing accounts list --format='value(name)' --limit=1)"
+}
+
+gservices() {
+    # List enabled services
+    gcloud services list --enabled
+}
+
+genable() {
+    # Enable API service
+    gcloud services enable "$1"
+}
+
+gdisable() {
+    # Disable API service
+    gcloud services disable "$1"
+}
+
+# Terraform shortcuts
+alias tf="terraform"
+alias tfi="terraform init"
+alias tfp="terraform plan"
+alias tfa="terraform apply"
+alias tfd="terraform destroy"
+alias tfv="terraform validate"
+alias tff="terraform fmt"
+
+# Cloud SQL Proxy
+sqlproxy() {
+    # Start Cloud SQL proxy
+    cloud-sql-proxy "$1" &
+}
+
+
+# htop aliases
+alias top="htop"
+alias htop-tree="htop -t"     # Tree view
+alias htop-user="htop -u $USER"  # Show only current user processes
+
+
+# Kubernetes aliases
+alias k="kubectl"
+alias kx="kubectx"
+alias kn="kubens"
+
+# kubectl get
+alias kg="kubectl get"
+alias kgp="kubectl get pods"
+alias kgpa="kubectl get pods --all-namespaces"
+alias kgd="kubectl get deployments"
+alias kgs="kubectl get services"
+alias kgi="kubectl get ingress"
+alias kgn="kubectl get nodes"
+alias kgns="kubectl get namespaces"
+alias kgcm="kubectl get configmap"
+alias kgsec="kubectl get secret"
+alias kgpv="kubectl get pv"
+alias kgpvc="kubectl get pvc"
+
+# kubectl describe
+alias kd="kubectl describe"
+alias kdp="kubectl describe pod"
+alias kdd="kubectl describe deployment"
+alias kds="kubectl describe service"
+alias kdi="kubectl describe ingress"
+alias kdn="kubectl describe node"
+
+# kubectl apply/delete
+alias ka="kubectl apply -f"
+alias kaf="kubectl apply -f"
+alias kdel="kubectl delete"
+alias kdelf="kubectl delete -f"
+
+# kubectl logs
+alias kl="kubectl logs"
+alias klf="kubectl logs -f"
+alias klt="kubectl logs --tail"
+
+# kubectl exec
+alias kex="kubectl exec -it"
+alias kexsh="kubectl exec -it -- /bin/sh"
+alias kexbash="kubectl exec -it -- /bin/bash"
+
+# kubectl edit
+alias ke="kubectl edit"
+alias ked="kubectl edit deployment"
+alias kes="kubectl edit service"
+alias kecm="kubectl edit configmap"
+
+# kubectl scale
+alias ksc="kubectl scale"
+alias kscd="kubectl scale deployment"
+
+# kubectl port-forward
+alias kpf="kubectl port-forward"
+
+# kubectl top
+alias ktop="kubectl top"
+alias ktopp="kubectl top pods"
+alias ktopn="kubectl top nodes"
+
+# Helm aliases
+alias h="helm"
+alias hi="helm install"
+alias hu="helm upgrade"
+alias hd="helm delete"
+alias hl="helm list"
+alias hs="helm search"
+alias hr="helm repo"
+alias hru="helm repo update"
+
+# k9s
+alias k9="k9s"
+
+# Useful functions
+kpods() {
+    # Get pods with node info
+    kubectl get pods -o wide ${1:+--namespace=$1}
+}
+
+kexec() {
+    # Exec into first pod matching pattern
+    local pod=$(kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 "$1")
+    if [[ -n "$pod" ]]; then
+        kubectl exec -it "$pod" -- ${2:-/bin/bash}
+    else
+        echo "No pod found matching: $1"
+    fi
+}
+
+klogs() {
+    # Get logs from first pod matching pattern
+    local pod=$(kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 "$1")
+    if [[ -n "$pod" ]]; then
+        kubectl logs -f "$pod"
+    else
+        echo "No pod found matching: $1"
+    fi
+}
+
+kcontext() {
+    # Switch context with fzf
+    kubectl config get-contexts -o name | fzf | xargs kubectl config use-context
+}
+
+knamespace() {
+    # Switch namespace with fzf
+    kubectl get namespaces -o name | cut -d/ -f2 | fzf | xargs kubectl config set-context --current --namespace=
+}
+
+
+# kubectl completion
+source <(kubectl completion zsh)
+compdef k=kubectl
+
+# lazygit aliases
+alias lg="lazygit"
+alias lzg="lazygit"
+alias lgit="lazygit"
+
+# Git + lazygit workflow
+alias gs="git status"
+alias gst="git status"
+alias gss="git status -s"
+
+
+# Ripgrep configuration
+export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
+
+# Ripgrep aliases
+alias rg='rg --color=auto'
+alias rgi='rg -i'  # case insensitive
+alias rgf='rg -F'  # fixed string (literal)
+alias rgl='rg -l'  # files with matches
+alias rgc='rg -c'  # count matches
+alias rgn='rg --no-ignore'  # search ignored files too
+alias rgh='rg --hidden'  # search hidden files
+alias rgw='rg -w'  # whole words only
+
+
+# Terraform aliases
+alias tf="terraform"
+alias tfi="terraform init"
+alias tfp="terraform plan"
+alias tfa="terraform apply"
+alias tfaa="terraform apply -auto-approve"
+alias tfd="terraform destroy"
+alias tfda="terraform destroy -auto-approve"
+alias tfv="terraform validate"
+alias tff="terraform fmt"
+alias tfr="terraform refresh"
+alias tfo="terraform output"
+alias tfs="terraform state"
+alias tfsl="terraform state list"
+alias tfss="terraform state show"
+alias tfsp="terraform state pull"
+alias tfw="terraform workspace"
+alias tfwl="terraform workspace list"
+alias tfws="terraform workspace select"
+alias tfwn="terraform workspace new"
+
+# Terragrunt aliases
+alias tg="terragrunt"
+alias tgi="terragrunt init"
+alias tgp="terragrunt plan"
+alias tga="terragrunt apply"
+alias tgd="terragrunt destroy"
+alias tgv="terragrunt validate"
+alias tgf="terragrunt fmt"
+
+# Terraform functions
+tfplan() {
+    # Plan with output file
+    terraform plan -out=tfplan "$@"
+}
+
+tfapply() {
+    # Apply from plan file
+    if [[ -f tfplan ]]; then
+        terraform apply tfplan
+        rm tfplan
+    else
+        terraform apply "$@"
+    fi
+}
+
+tfdiff() {
+    # Show plan diff
+    terraform plan -detailed-exitcode "$@"
+}
+
+tfimport() {
+    # Import resource
+    terraform import "$@"
+}
+
+tfmv() {
+    # Move state resource
+    terraform state mv "$@"
+}
+
+tfrm() {
+    # Remove from state
+    terraform state rm "$@"
+}
+
+tflock() {
+    # Lock state
+    terraform force-unlock "$@"
+}
+
+tfgraph() {
+    # Generate dependency graph
+    terraform graph | dot -Tpng > terraform-graph.png
+    echo "Graph saved to terraform-graph.png"
+}
+
+tfcost() {
+    # Estimate costs (requires Infracost)
+    if command -v infracost &> /dev/null; then
+        infracost breakdown --path .
+    else
+        echo "Infracost not installed"
+    fi
+}
+
+tfscan() {
+    # Security scan
+    if command -v tfsec &> /dev/null; then
+        tfsec .
+    else
+        echo "tfsec not installed"
+    fi
+}
+
+tfdoc() {
+    # Generate documentation
+    if command -v terraform-docs &> /dev/null; then
+        terraform-docs markdown . > README.md
+    else
+        echo "terraform-docs not installed"
+    fi
+}
+
+tfclean() {
+    # Clean Terraform files
+    rm -rf .terraform terraform.tfstate* .terraform.lock.hcl tfplan
+    echo "Terraform files cleaned"
+}
+
+tfbackup() {
+    # Backup state file
+    if [[ -f terraform.tfstate ]]; then
+        cp terraform.tfstate "terraform.tfstate.backup.$(date +%Y%m%d_%H%M%S)"
+        echo "State backed up"
+    else
+        echo "No state file found"
+    fi
+}
+
+# Workspace management
+tfws-new() {
+    terraform workspace new "$1"
+    terraform workspace select "$1"
+}
+
+tfws-delete() {
+    terraform workspace select default
+    terraform workspace delete "$1"
+}
+
+# Module management
+tfmod-init() {
+    # Initialize new module
+    mkdir -p "$1"
+    cd "$1"
+    touch main.tf variables.tf outputs.tf README.md
+    echo "Module $1 initialized"
+}
+
+
+# Tree aliases
+alias t='tree'
+alias t1='tree -L 1'
+alias t2='tree -L 2'
+alias t3='tree -L 3'
+alias ta='tree -a'
+alias td='tree -d'  # directories only
+alias tf='tree -f'  # full path
+alias tg='tree --gitignore'  # respect .gitignore
+alias ts='tree -h'  # show sizes in human readable
+alias tds='tree -d -h'  # directories with sizes
+
+
+# Go language
+export GOROOT="/usr/local/go"
+export GOPATH="$HOME/go"
+export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+
+# Go environment variables
+export GO111MODULE="on"
+export GOPROXY="https://proxy.golang.org,direct"
+export GOSUMDB="sum.golang.org"
+export GOPRIVATE=""
+
+# Go aliases
+alias gob="go build"
+alias gobv="go build -v"
+alias goba="go build ./..."
+alias gor="go run"
+alias gorv="go run -v"
+alias gorm="go run main.go"
+alias got="go test"
+alias gotv="go test -v"
+alias gota="go test ./..."
+alias gotc="go test -cover"
+alias gotcv="go test -cover -v"
+alias gotb="go test -bench ."
+alias gof="go fmt"
+alias gofa="go fmt ./..."
+alias gog="go get"
+alias gogu="go get -u"
+alias goga="go get -u ./..."
+alias goi="go install"
+alias gom="go mod"
+alias gomi="go mod init"
+alias gomt="go mod tidy"
+alias gomd="go mod download"
+alias gomv="go mod vendor"
+alias gov="go vet"
+alias gova="go vet ./..."
+alias gol="golangci-lint run"
+alias gola="golangci-lint run ./..."
+alias gow="go work"
+
+# Go functions
+gocover() {
+    go test -coverprofile=coverage.out "$@" && go tool cover -html=coverage.out
+}
+
+gonew() {
+    if [ -z "$1" ]; then
+        echo "Usage: gonew <module-name>"
+        return 1
+    fi
+    mkdir -p "$1" && cd "$1" && go mod init "$1"
+}
+
+
+# sccache for faster Rust compilation
+export RUSTC_WRAPPER="sccache"
+export SCCACHE_DIR="$HOME/.cache/sccache"
+export SCCACHE_CACHE_SIZE="10G"
+
