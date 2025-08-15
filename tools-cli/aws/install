@@ -8,6 +8,41 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
+install_aws_cli() {
+    log_info "Installing AWS CLI v2..."
+    
+    if command -v aws &> /dev/null; then
+        log_info "AWS CLI is already installed: $(aws --version)"
+        return 0
+    fi
+    
+    case "$OS" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install awscli
+            else
+                log_info "Installing AWS CLI via direct download..."
+                curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+                safe_sudo installer -pkg AWSCLIV2.pkg -target /
+                rm AWSCLIV2.pkg
+            fi
+            ;;
+        debian|mint)
+            log_info "Installing AWS CLI v2 via direct download..."
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip -q awscliv2.zip
+            safe_sudo ./aws/install
+            rm -rf awscliv2.zip aws/
+            ;;
+        *)
+            log_warning "Please install AWS CLI manually for your OS"
+            return 1
+            ;;
+    esac
+    
+    log_success "AWS CLI installed: $(aws --version)"
+}
+
 install_aws_sam() {
     log_info "Installing AWS SAM CLI..."
     
