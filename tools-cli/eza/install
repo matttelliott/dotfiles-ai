@@ -1,98 +1,31 @@
 #!/bin/bash
-# eza setup script - modern replacement for ls
 
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-# Detect OS
-OS="$(uname)"
-if [[ "$OS" == "Darwin" ]]; then
-    PLATFORM="macos"
-elif [[ "$OS" == "Linux" ]]; then
-    if [[ -f /etc/debian_version ]]; then
-        PLATFORM="debian"
-    else
-        PLATFORM="linux"
-    fi
-else
-    log_warning "Unknown platform: $OS"
-    exit 1
-fi
-
-install_eza() {
-    log_info "Installing eza..."
-    
-    if command -v eza &> /dev/null; then
-        log_info "eza is already installed: $(eza --version)"
-        return 0
-    fi
-    
-    case "$PLATFORM" in
-        macos)
-            if command -v brew &> /dev/null; then
-                brew install eza
-            else
-                log_warning "Homebrew not found, installing via cargo..."
-                install_via_cargo
-            fi
-            ;;
-        debian)
-            # Try to install from package manager first
-            if install_from_apt; then
-                log_success "eza installed from apt"
-            else
-                log_info "eza not available in apt, trying cargo..."
-                install_via_cargo
-            fi
-            ;;
-        linux)
-            # Generic Linux installation
-            if command -v cargo &> /dev/null; then
-                install_via_cargo
-            else
-                install_from_binary
-            fi
-            ;;
-    esac
-    
-    log_success "eza installed successfully"
-}
+detect_os
 
 install_from_apt() {
     # For newer Debian/Ubuntu versions, eza might be available
     log_info "Checking if eza is available in apt..."
     
     # Add eza repository for Debian/Ubuntu
-    if [[ "$PLATFORM" == "debian" ]]; then
+    if [[ "$OS" == "debian" ]]; then
         # Install GPG if not present
-        sudo apt update
-        sudo apt install -y gpg
+        safe_sudo apt update
+        safe_sudo apt install -y gpg
         
         # Add eza repository
         sudo mkdir -p /etc/apt/keyrings
         wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
         echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
         sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
-        sudo apt update
+        safe_sudo apt update
         
-        if sudo apt install -y eza; then
+        if safe_sudo apt install -y eza; then
             return 0
         fi
     fi
@@ -148,7 +81,7 @@ install_from_binary() {
     
     if curl -L -o eza.tar.gz "$DOWNLOAD_URL"; then
         tar xzf eza.tar.gz
-        sudo mv eza /usr/local/bin/
+        safe_sudo mv eza /usr/local/bin/
         sudo chmod +x /usr/local/bin/eza
         log_success "eza installed to /usr/local/bin/eza"
     else

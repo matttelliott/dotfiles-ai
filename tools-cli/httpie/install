@@ -1,65 +1,12 @@
 #!/bin/bash
-# HTTPie and curl tools setup
 
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-# Detect OS
-OS="$(uname)"
-if [[ "$OS" == "Darwin" ]]; then
-    PLATFORM="macos"
-elif [[ "$OS" == "Linux" ]]; then
-    if [[ -f /etc/debian_version ]]; then
-        PLATFORM="debian"
-    else
-        PLATFORM="linux"
-    fi
-else
-    log_warning "Unknown platform: $OS"
-    exit 1
-fi
-
-install_curl() {
-    log_info "Checking curl installation..."
-    
-    if command -v curl &> /dev/null; then
-        log_info "curl is already installed: $(curl --version | head -n1)"
-        return 0
-    fi
-    
-    case "$PLATFORM" in
-        macos)
-            # macOS comes with curl pre-installed
-            log_info "curl comes pre-installed on macOS"
-            ;;
-        debian)
-            sudo apt update
-            sudo apt install -y curl
-            ;;
-        *)
-            log_warning "Please install curl manually"
-            ;;
-    esac
-    
-    log_success "curl installed"
-}
+detect_os
 
 install_httpie() {
     log_info "Installing HTTPie..."
@@ -69,7 +16,7 @@ install_httpie() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install httpie
@@ -78,8 +25,8 @@ install_httpie() {
             fi
             ;;
         debian)
-            sudo apt update
-            sudo apt install -y httpie
+            safe_sudo apt update
+            safe_sudo apt install -y httpie
             ;;
         *)
             # Install via pip as fallback
@@ -127,7 +74,7 @@ install_curlie() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install curlie
@@ -156,7 +103,7 @@ install_xh() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install xh
@@ -181,7 +128,7 @@ install_xh() {
                 
                 curl -L -o xh.tar.gz "https://github.com/ducaale/xh/releases/download/v${XH_VERSION}/xh-v${XH_VERSION}-${ARCH}-unknown-linux-musl.tar.gz"
                 tar xzf xh.tar.gz
-                sudo mv xh-*/xh /usr/local/bin/
+                safe_sudo mv xh-*/xh /usr/local/bin/
                 rm -rf xh.tar.gz xh-*/
             fi
             ;;
@@ -448,7 +395,6 @@ create_http_templates() {
     
     # API test script
     cat > "$HOME/.config/http/templates/api-test.sh" << 'EOF'
-#!/bin/bash
 # API testing script template
 
 BASE_URL="${1:-http://localhost:8080}"
@@ -493,7 +439,6 @@ EOF
     
     # HTTPie session example
     cat > "$HOME/.config/http/templates/session-example.sh" << 'EOF'
-#!/bin/bash
 # HTTPie session example
 
 SESSION_NAME="my-api"
@@ -517,7 +462,6 @@ EOF
     
     # curl examples
     cat > "$HOME/.config/http/templates/curl-examples.sh" << 'EOF'
-#!/bin/bash
 # Common curl examples
 
 # GET request
@@ -577,7 +521,6 @@ EOF
     
     # GraphQL template
     cat > "$HOME/.config/http/templates/graphql.sh" << 'EOF'
-#!/bin/bash
 # GraphQL query examples
 
 GRAPHQL_ENDPOINT="http://localhost:4000/graphql"

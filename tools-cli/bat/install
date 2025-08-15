@@ -1,101 +1,12 @@
 #!/bin/bash
-# bat setup script - cat with syntax highlighting and git integration
 
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-# Detect OS
-OS="$(uname)"
-if [[ "$OS" == "Darwin" ]]; then
-    PLATFORM="macos"
-elif [[ "$OS" == "Linux" ]]; then
-    if [[ -f /etc/debian_version ]]; then
-        PLATFORM="debian"
-    else
-        PLATFORM="linux"
-    fi
-else
-    log_warning "Unknown platform: $OS"
-    exit 1
-fi
-
-install_bat() {
-    log_info "Installing bat..."
-    
-    # Check if bat or batcat is already installed
-    if command -v bat &> /dev/null; then
-        log_info "bat is already installed: $(bat --version)"
-        return 0
-    elif command -v batcat &> /dev/null; then
-        log_info "bat is already installed as batcat: $(batcat --version)"
-        # Create symlink for consistency
-        mkdir -p "$HOME/.local/bin"
-        ln -sf "$(which batcat)" "$HOME/.local/bin/bat" 2>/dev/null || true
-        return 0
-    fi
-    
-    case "$PLATFORM" in
-        macos)
-            if command -v brew &> /dev/null; then
-                brew install bat
-            else
-                log_warning "Homebrew not found, installing via binary..."
-                install_from_github
-            fi
-            ;;
-        debian)
-            # On Debian/Ubuntu, bat is often packaged as batcat
-            sudo apt update
-            if apt-cache show bat &> /dev/null; then
-                sudo apt install -y bat
-                # On some systems it's installed as batcat
-                if command -v batcat &> /dev/null && ! command -v bat &> /dev/null; then
-                    mkdir -p "$HOME/.local/bin"
-                    ln -sf "$(which batcat)" "$HOME/.local/bin/bat"
-                    log_info "Created symlink: bat -> batcat"
-                fi
-            else
-                log_info "bat not in apt, installing from GitHub..."
-                install_from_github
-            fi
-            ;;
-        linux)
-            # Generic Linux installation
-            if command -v apt &> /dev/null; then
-                sudo apt update && sudo apt install -y bat 2>/dev/null || install_from_github
-                if command -v batcat &> /dev/null && ! command -v bat &> /dev/null; then
-                    mkdir -p "$HOME/.local/bin"
-                    ln -sf "$(which batcat)" "$HOME/.local/bin/bat"
-                fi
-            elif command -v dnf &> /dev/null; then
-                sudo dnf install -y bat 2>/dev/null || install_from_github
-            elif command -v pacman &> /dev/null; then
-                sudo pacman -S --noconfirm bat 2>/dev/null || install_from_github
-            else
-                install_from_github
-            fi
-            ;;
-    esac
-    
-    log_success "bat installed successfully"
-}
+detect_os
 
 install_from_github() {
     log_info "Installing bat from GitHub releases..."
@@ -116,7 +27,7 @@ install_from_github() {
     esac
     
     # Detect OS for download
-    if [[ "$PLATFORM" == "macos" ]]; then
+    if [[ "$OS" == "macos" ]]; then
         OS_STRING="apple-darwin"
     else
         OS_STRING="unknown-linux-gnu"
@@ -138,7 +49,7 @@ install_from_github() {
     # Find the bat binary and install it
     BAT_BIN=$(find . -name "bat" -type f | head -n1)
     if [[ -n "$BAT_BIN" ]]; then
-        sudo mv "$BAT_BIN" /usr/local/bin/bat
+        safe_sudo mv "$BAT_BIN" /usr/local/bin/bat
         sudo chmod +x /usr/local/bin/bat
         log_success "bat installed to /usr/local/bin/bat"
     else

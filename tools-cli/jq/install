@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -e
+
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
+
+setup_jq_config() {
+    log_info "Setting up jq configuration..."
+    
+    # Create config directory
+    mkdir -p "$HOME/.config/jq"
+    
+    # Link custom jq modules if they exist
+    if [[ -f "$PWD/jq/modules.jq" ]]; then
+        ln -sf "$PWD/jq/modules.jq" "$HOME/.config/jq/modules.jq"
+        log_success "Linked jq custom modules"
+    fi
+    
+    # Link jqrc if it exists (custom startup file)
+    if [[ -f "$PWD/jq/jqrc" ]]; then
+        ln -sf "$PWD/jq/jqrc" "$HOME/.jqrc"
+        log_success "Linked jqrc configuration"
+    fi
+}
+
+# Main installation
+main() {
+    log_info "Setting up jq..."
+    
+    install_jq
+    setup_jq_config
+    
+    # Verify installation
+    if command -v jq &> /dev/null; then
+        log_success "jq setup complete!"
+        echo "Testing jq with sample JSON..."
+        echo '{"test": "hello world"}' | jq .
+    else
+        log_warning "jq installation may have failed"
+        exit 1
+    fi
+}
+
+main "$@"

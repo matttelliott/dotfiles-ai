@@ -1,86 +1,12 @@
 #!/bin/bash
-# Kubernetes tools setup (kubectl, helm, k9s, etc.)
 
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-# Detect OS
-OS="$(uname)"
-ARCH="$(uname -m)"
-
-if [[ "$OS" == "Darwin" ]]; then
-    PLATFORM="darwin"
-elif [[ "$OS" == "Linux" ]]; then
-    PLATFORM="linux"
-else
-    log_warning "Unknown platform: $OS"
-    exit 1
-fi
-
-# Detect architecture
-case "$ARCH" in
-    x86_64)
-        ARCH_K8S="amd64"
-        ;;
-    aarch64|arm64)
-        ARCH_K8S="arm64"
-        ;;
-    *)
-        log_warning "Unsupported architecture: $ARCH"
-        exit 1
-        ;;
-esac
-
-install_kubectl() {
-    log_info "Installing kubectl..."
-    
-    if command -v kubectl &> /dev/null; then
-        log_info "kubectl is already installed: $(kubectl version --client --short 2>/dev/null || kubectl version --client)"
-        return 0
-    fi
-    
-    # Get latest stable version
-    KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
-    
-    log_info "Installing kubectl ${KUBECTL_VERSION}..."
-    
-    # Download kubectl
-    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${PLATFORM}/${ARCH_K8S}/kubectl"
-    
-    # Verify (optional but recommended)
-    curl -LO "https://dl.k8s.io/${KUBECTL_VERSION}/bin/${PLATFORM}/${ARCH_K8S}/kubectl.sha256"
-    
-    if [[ "$PLATFORM" == "darwin" ]]; then
-        # macOS doesn't have sha256sum, use shasum
-        echo "$(cat kubectl.sha256)  kubectl" | shasum -a 256 --check
-    else
-        echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
-    fi
-    
-    # Install
-    chmod +x kubectl
-    sudo mv kubectl /usr/local/bin/
-    rm kubectl.sha256
-    
-    log_success "kubectl installed successfully"
-}
+detect_os
 
 install_helm() {
     log_info "Installing Helm..."
@@ -107,7 +33,7 @@ install_k9s() {
         return 0
     fi
     
-    if [[ "$PLATFORM" == "darwin" ]] && command -v brew &> /dev/null; then
+    if [[ "$OS" == "darwin" ]] && command -v brew &> /dev/null; then
         brew install k9s
     else
         # Get latest version
@@ -120,7 +46,7 @@ install_k9s() {
         # Download and install
         curl -L -o k9s.tar.gz "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_${PLATFORM}_${ARCH_K8S}.tar.gz"
         tar xzf k9s.tar.gz k9s
-        sudo mv k9s /usr/local/bin/
+        safe_sudo mv k9s /usr/local/bin/
         rm k9s.tar.gz
     fi
     
@@ -135,7 +61,7 @@ install_kubectx() {
         return 0
     fi
     
-    if [[ "$PLATFORM" == "darwin" ]] && command -v brew &> /dev/null; then
+    if [[ "$OS" == "darwin" ]] && command -v brew &> /dev/null; then
         brew install kubectx
     else
         # Install from GitHub
@@ -157,7 +83,7 @@ install_kustomize() {
     
     # Install via script
     curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-    sudo mv kustomize /usr/local/bin/
+    safe_sudo mv kustomize /usr/local/bin/
     
     log_success "kustomize installed"
 }
@@ -170,7 +96,7 @@ install_stern() {
         return 0
     fi
     
-    if [[ "$PLATFORM" == "darwin" ]] && command -v brew &> /dev/null; then
+    if [[ "$OS" == "darwin" ]] && command -v brew &> /dev/null; then
         brew install stern
     else
         # Get latest version
@@ -179,7 +105,7 @@ install_stern() {
         # Download and install
         curl -L -o stern.tar.gz "https://github.com/stern/stern/releases/download/v${STERN_VERSION}/stern_${STERN_VERSION}_${PLATFORM}_${ARCH_K8S}.tar.gz"
         tar xzf stern.tar.gz stern
-        sudo mv stern /usr/local/bin/
+        safe_sudo mv stern /usr/local/bin/
         rm stern.tar.gz
     fi
     
