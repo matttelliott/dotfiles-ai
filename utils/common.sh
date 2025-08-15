@@ -70,24 +70,44 @@ safe_sudo() {
     fi
 }
 
-# Safe apt update that ignores repository errors
+# Track if apt update has been run in this session
+APT_UPDATED="${APT_UPDATED:-false}"
+
+# Safe apt update that ignores repository errors and runs only once per session
 safe_apt_update() {
     if is_ci; then
         log_warning "Running in CI/non-interactive mode, skipping apt update"
         return 1
-    else
-        # Run apt update but don't fail on repository errors
-        # Suppress common warnings and errors that don't affect functionality
-        sudo apt-get update 2>&1 | \
-            grep -v "^E: The repository.*does not have a Release file" | \
-            grep -v "^W:.*Key is stored in legacy trusted.gpg" | \
-            grep -v "^W:.*Target.*is configured multiple times" | \
-            grep -v "^N: Updating from such a repository" | \
-            grep -v "^N: See apt-secure" || true
-        
-        # Return success even if there were repository warnings
+    fi
+    
+    # Check if we've already updated in this session
+    if [[ "$APT_UPDATED" == "true" ]]; then
+        # Already updated, skip
         return 0
     fi
+    
+    log_info "Updating package lists (this may take a moment)..."
+    
+    # Run apt update but don't fail on repository errors
+    # Suppress common warnings and errors that don't affect functionality
+    if sudo apt-get update 2>&1 | \
+        grep -v "^E: The repository.*does not have a Release file" | \
+        grep -v "^W:.*Key is stored in legacy trusted.gpg" | \
+        grep -v "^W:.*Target.*is configured multiple times" | \
+        grep -v "^N: Updating from such a repository" | \
+        grep -v "^N: See apt-secure" | \
+        grep -v "^$"; then  # Also remove blank lines
+        
+        # Mark as updated for this session
+        export APT_UPDATED=true
+        log_success "Package lists updated"
+    else
+        # Even if it failed, mark as attempted to avoid retrying
+        export APT_UPDATED=true
+        log_info "Package list update completed with warnings"
+    fi
+    
+    return 0
 }
 
 # Fix common APT repository issues for Linux Mint
@@ -186,4 +206,5 @@ safe_python_install() {
 }
 
 # Export functions so they're available in subshells
-export -f log_info log_success log_warning log_error detect_os is_ci safe_sudo safe_apt_update safe_python_install
+export -f log_info log_success log_warning log_error detect_os is_ci safe_sudo safe_apt_update safe_python_install fix_mint_repos
+export APT_UPDATED

@@ -236,6 +236,11 @@ main() {
     detect_os
     log_info "Detected OS: $OS"
     
+    # Run apt update once at the beginning for Debian/Mint systems
+    if [[ "$OS" == "debian" ]] || [[ "$OS" == "mint" ]]; then
+        safe_apt_update
+    fi
+    
     # Try to install stow first (continue even if it fails)
     install_stow || log_warning "Continuing without GNU Stow - configs won't be linked"
     
