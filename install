@@ -134,11 +134,17 @@ install_tool() {
         log_warning "No installer found for $tool_name"
     fi
     
-    # Use stow for any config files
-    if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
-        log_info "Stowing $tool_name configs..."
-        (cd "$STOW_DIR" && stow -t "$TARGET_DIR" -R "$tool_path")
-        log_success "$tool_name configs linked"
+    # Use stow for any config files (if stow is available)
+    if command -v stow &> /dev/null; then
+        if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
+            log_info "Stowing $tool_name configs..."
+            (cd "$STOW_DIR" && stow -t "$TARGET_DIR" -R "$tool_path")
+            log_success "$tool_name configs linked"
+        fi
+    else
+        if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
+            log_warning "Stow not available - skipping config linking for $tool_name"
+        fi
     fi
 }
 
@@ -217,8 +223,8 @@ main() {
     detect_os
     log_info "Detected OS: $OS"
     
-    # Always install stow first
-    install_stow
+    # Try to install stow first (continue even if it fails)
+    install_stow || log_warning "Continuing without GNU Stow - configs won't be linked"
     
     # Determine what to install
     if [[ $# -eq 0 ]] || [[ "$1" == "all" ]]; then
