@@ -167,7 +167,17 @@ install_dependencies() {
 main() {
     log_info "Installing Neovim..."
     
-    check_dependencies
+    # Check for basic dependencies
+    if ! command -v git &> /dev/null; then
+        log_error "git is required but not installed"
+        exit 1
+    fi
+    
+    if ! command -v curl &> /dev/null && ! command -v wget &> /dev/null; then
+        log_error "curl or wget is required but not installed"
+        exit 1
+    fi
+    
     install_neovim
     install_dependencies
     
