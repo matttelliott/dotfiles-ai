@@ -225,6 +225,7 @@ EOF
     fi
     
     # Create CLI aliases file
+    mkdir -p "$HOME/.aws/cli"
     cat > "$HOME/.aws/cli/alias" << 'EOF'
 [toplevel]
 
