@@ -200,7 +200,7 @@ install_go_tools() {
         "github.com/ramya-rao-a/go-outline@latest"     # Code outline
         "github.com/mgechev/revive@latest"             # Linter
         "github.com/securego/gosec/v2/cmd/gosec@latest" # Security checker
-        "github.com/cosmtrek/air@latest"               # Live reload
+        "github.com/air-verse/air@latest"              # Live reload
         "github.com/go-task/task/v3/cmd/task@latest"   # Task runner
         "github.com/goreleaser/goreleaser@latest"      # Release automation
         "github.com/mikefarah/yq/v4@latest"            # YAML processor
