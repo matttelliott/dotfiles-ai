@@ -69,5 +69,17 @@ safe_sudo() {
     fi
 }
 
+# Safe apt update that ignores repository errors
+safe_apt_update() {
+    if is_ci; then
+        log_warning "Running in CI/non-interactive mode, skipping apt update"
+        return 1
+    else
+        # Run apt update but don't fail on repository errors
+        sudo apt-get update 2>&1 | grep -v "^E: The repository" | grep -v "^W:" || true
+        return 0
+    fi
+}
+
 # Export functions so they're available in subshells
-export -f log_info log_success log_warning log_error detect_os is_ci safe_sudo
+export -f log_info log_success log_warning log_error detect_os is_ci safe_sudo safe_apt_update

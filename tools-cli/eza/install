@@ -15,7 +15,7 @@ install_from_apt() {
     # Add eza repository for Debian/Ubuntu
     if [[ "$OS" == "debian" ]]; then
         # Install GPG if not present
-        safe_sudo apt update
+        safe_apt_update
         safe_sudo apt install -y gpg
         
         # Add eza repository
@@ -23,7 +23,7 @@ install_from_apt() {
         wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
         echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
         sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
-        safe_sudo apt update
+        safe_apt_update
         
         if safe_sudo apt install -y eza; then
             return 0

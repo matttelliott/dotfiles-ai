@@ -22,7 +22,7 @@ install_netcat() {
             log_info "netcat comes pre-installed on macOS"
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y netcat-openbsd
             ;;
     esac
@@ -47,7 +47,7 @@ install_mtr() {
             fi
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y mtr
             ;;
     esac
@@ -69,7 +69,7 @@ install_tcpdump() {
             log_info "tcpdump comes pre-installed on macOS"
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y tcpdump
             ;;
     esac
@@ -90,7 +90,7 @@ install_iperf() {
             brew install iperf3
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y iperf3
             ;;
     esac
@@ -111,7 +111,7 @@ install_dig() {
             brew install bind
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y dnsutils
             ;;
     esac
@@ -133,7 +133,7 @@ install_traceroute() {
             log_info "traceroute comes pre-installed on macOS"
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y traceroute
             ;;
     esac
@@ -154,7 +154,7 @@ install_whois() {
             brew install whois
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y whois
             ;;
     esac
@@ -175,7 +175,7 @@ install_socat() {
             brew install socat
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y socat
             ;;
     esac
@@ -196,7 +196,7 @@ install_telnet() {
             brew install telnet
             ;;
         debian)
-            safe_sudo apt update
+            safe_apt_update
             safe_sudo apt install -y telnet
             ;;
     esac
