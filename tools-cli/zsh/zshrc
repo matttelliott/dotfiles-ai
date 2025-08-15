@@ -1110,3 +1110,386 @@ fi
 # Container tools
 alias lzd="lazydocker"
 
+
+# File watcher aliases and functions
+
+# Basic entr usage
+alias watch="entr"
+alias watchr="entr -r"  # Restart mode
+alias watchc="entr -c"  # Clear screen
+alias watchp="entr -p"  # Postpone first execution
+
+# Common watch patterns
+watch-run() {
+    # Watch files and run command
+    # Usage: watch-run "*.js" "npm test"
+    local pattern="$1"
+    shift
+    find . -name "$pattern" | entr -c "$@"
+}
+
+watch-test() {
+    # Watch and run tests
+    local pattern="${1:-*.test.*}"
+    shift
+    find . -name "$pattern" | entr -c "${@:-npm test}"
+}
+
+watch-build() {
+    # Watch and rebuild
+    find . -name "*.go" -o -name "*.js" -o -name "*.ts" -o -name "*.rs" | entr -c make build
+}
+
+watch-python() {
+    # Watch Python files and run
+    find . -name "*.py" | entr -rc python "${1:-main.py}"
+}
+
+watch-node() {
+    # Watch JS/TS files and restart node
+    find . -name "*.js" -o -name "*.ts" | entr -rc node "${1:-index.js}"
+}
+
+watch-go() {
+    # Watch Go files and run
+    find . -name "*.go" | entr -rc go run "${1:-.}"
+}
+
+watch-rust() {
+    # Watch Rust files and run
+    find . -name "*.rs" -o -name "Cargo.toml" | entr -rc cargo run
+}
+
+watch-make() {
+    # Watch and run make
+    find . -type f -not -path "*/\.*" | entr -c make "${1:-all}"
+}
+
+watch-docker() {
+    # Watch Dockerfile and rebuild
+    echo Dockerfile | entr -c docker build -t "${1:-app}" .
+}
+
+watch-compose() {
+    # Watch docker-compose and restart
+    find . -name "docker-compose*.yml" -o -name "Dockerfile" | entr -rc docker-compose up
+}
+
+watch-reload() {
+    # Watch and reload browser (requires browser-sync)
+    if command -v browser-sync &> /dev/null; then
+        browser-sync start --server --files "$1"
+    else
+        echo "browser-sync not installed"
+    fi
+}
+
+watch-sass() {
+    # Watch SASS/SCSS files
+    find . -name "*.scss" -o -name "*.sass" | entr -c sass "${1:-styles.scss}" "${2:-styles.css}"
+}
+
+watch-typescript() {
+    # Watch TypeScript files
+    find . -name "*.ts" -o -name "*.tsx" | entr -c tsc
+}
+
+watch-eslint() {
+    # Watch and lint JavaScript
+    find . -name "*.js" -o -name "*.jsx" | entr -c eslint .
+}
+
+watch-prettier() {
+    # Watch and format
+    find . -name "*.js" -o -name "*.ts" -o -name "*.json" | entr -c prettier --write .
+}
+
+watch-pytest() {
+    # Watch and run pytest
+    find . -name "*.py" | entr -c pytest "${@:--v}"
+}
+
+watch-rspec() {
+    # Watch and run RSpec
+    find . -name "*.rb" | entr -c rspec "${@}"
+}
+
+watch-cargo() {
+    # Watch and run cargo commands
+    find . -name "*.rs" -o -name "Cargo.toml" | entr -c cargo "${@:-test}"
+}
+
+watch-git() {
+    # Watch files and show git status
+    find . -type f -not -path "./.git/*" | entr -c git status
+}
+
+watch-sync() {
+    # Watch and sync to remote
+    find . -type f -not -path "./.git/*" | entr -c rsync -av . "${1:-user@host:/path}"
+}
+
+watch-notify() {
+    # Watch and send notification
+    # Requires terminal-notifier on macOS or notify-send on Linux
+    local pattern="$1"
+    local message="${2:-Files changed}"
+    
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v terminal-notifier &> /dev/null; then
+        find . -name "$pattern" | entr terminal-notifier -message "$message"
+    elif command -v notify-send &> /dev/null; then
+        find . -name "$pattern" | entr notify-send "File Watcher" "$message"
+    else
+        find . -name "$pattern" | entr echo "$message"
+    fi
+}
+
+# Advanced watch with multiple commands
+watch-chain() {
+    # Run multiple commands on file change
+    # Usage: watch-chain "*.js" "eslint ." "npm test" "npm build"
+    local pattern="$1"
+    shift
+    local commands="$@"
+    find . -name "$pattern" | entr -c sh -c "$commands"
+}
+
+# Watch with debounce (using sleep)
+watch-debounce() {
+    # Watch with debounce delay
+    local delay="${1:-1}"
+    local pattern="$2"
+    shift 2
+    find . -name "$pattern" | entr -c sh -c "sleep $delay && $@"
+}
+
+# Interactive file watcher menu
+watch-menu() {
+    echo "Select watch mode:"
+    echo "1) Watch and run tests"
+    echo "2) Watch and build"
+    echo "3) Watch and lint"
+    echo "4) Watch and restart server"
+    echo "5) Custom command"
+    
+    read -p "Choice: " choice
+    
+    case $choice in
+        1) watch-test ;;
+        2) watch-build ;;
+        3) watch-eslint ;;
+        4) watch-node ;;
+        5) 
+            read -p "Pattern: " pattern
+            read -p "Command: " cmd
+            find . -name "$pattern" | entr -c $cmd
+            ;;
+        *) echo "Invalid choice" ;;
+    esac
+}
+
+# fswatch aliases (if available)
+if command -v fswatch &> /dev/null; then
+    fswatch-run() {
+        # Watch directory with fswatch
+        fswatch -o "${1:-.}" | xargs -n1 -I{} "${@:2}"
+    }
+    
+    fswatch-recursive() {
+        # Recursive watch
+        fswatch -r "${1:-.}" | xargs -n1 -I{} echo "Changed: {}"
+    }
+fi
+
+# Watchman aliases (if available)
+if command -v watchman &> /dev/null; then
+    watchman-init() {
+        # Initialize watchman for current directory
+        watchman watch .
+    }
+    
+    watchman-trigger() {
+        # Create watchman trigger
+        local name="$1"
+        local pattern="$2"
+        shift 2
+        watchman -- trigger . "$name" "$pattern" -- "$@"
+    }
+fi
+
+
+# HTTP tools aliases
+
+# HTTPie aliases
+alias GET="http GET"
+alias POST="http POST"
+alias PUT="http PUT"
+alias PATCH="http PATCH"
+alias DELETE="http DELETE"
+alias HEAD="http HEAD"
+
+# HTTPie shortcuts
+alias http-json="http --json"
+alias http-form="http --form"
+alias http-download="http --download"
+alias http-headers="http --headers"
+alias http-verbose="http --verbose"
+
+# curl aliases
+alias curl-json="curl -H 'Content-Type: application/json'"
+alias curl-post="curl -X POST"
+alias curl-put="curl -X PUT"
+alias curl-delete="curl -X DELETE"
+alias curl-headers="curl -I"
+alias curl-verbose="curl -v"
+alias curl-silent="curl -s"
+alias curl-download="curl -O"
+alias curl-follow="curl -L"
+alias curl-auth="curl -u"
+
+# Common API testing functions
+api-get() {
+    http GET "$@"
+}
+
+api-post() {
+    http POST "$@"
+}
+
+api-put() {
+    http PUT "$@"
+}
+
+api-delete() {
+    http DELETE "$@"
+}
+
+# JSON pretty print
+json-pretty() {
+    if command -v jq &> /dev/null; then
+        jq .
+    elif command -v python3 &> /dev/null; then
+        python3 -m json.tool
+    else
+        cat
+    fi
+}
+
+# Test API endpoint
+api-test() {
+    local url="${1:-http://localhost:8080}"
+    echo "Testing API at: $url"
+    echo "---"
+    echo "GET $url"
+    http --print=HhBb GET "$url" || curl -i "$url"
+}
+
+# Benchmark endpoint
+api-bench() {
+    local url="${1:-http://localhost:8080}"
+    local requests="${2:-100}"
+    local concurrency="${3:-10}"
+    
+    if command -v ab &> /dev/null; then
+        ab -n "$requests" -c "$concurrency" "$url"
+    elif command -v hey &> /dev/null; then
+        hey -n "$requests" -c "$concurrency" "$url"
+    else
+        echo "Install Apache Bench (ab) or hey for benchmarking"
+    fi
+}
+
+# Download with resume support
+download() {
+    local url="$1"
+    local output="${2:-$(basename "$url")}"
+    curl -L -C - -o "$output" "$url"
+}
+
+# Upload file
+upload() {
+    local file="$1"
+    local url="${2:-https://transfer.sh}"
+    
+    if [[ -f "$file" ]]; then
+        curl --upload-file "$file" "$url/$(basename "$file")"
+        echo
+    else
+        echo "File not found: $file"
+    fi
+}
+
+# Check HTTP status
+http-status() {
+    local url="$1"
+    curl -s -o /dev/null -w "%{http_code}\n" "$url"
+}
+
+# Time request
+http-time() {
+    local url="$1"
+    curl -w "@-" -o /dev/null -s "$url" << 'EOF'
+    time_namelookup:  %{time_namelookup}s
+    time_connect:     %{time_connect}s
+    time_appconnect:  %{time_appconnect}s
+    time_pretransfer: %{time_pretransfer}s
+    time_redirect:    %{time_redirect}s
+    time_starttransfer: %{time_starttransfer}s
+    ----------
+    time_total:       %{time_total}s
+EOF
+}
+
+# Test REST endpoints
+rest-test() {
+    local base="${1:-http://localhost:8080}"
+    echo "Testing REST endpoints at: $base"
+    echo "---"
+    echo "GET $base"
+    http GET "$base" 2>/dev/null || curl "$base"
+    echo "---"
+    echo "POST $base"
+    http POST "$base" test=data 2>/dev/null || curl -X POST "$base" -d '{"test":"data"}'
+}
+
+# GraphQL query
+graphql() {
+    local url="$1"
+    local query="$2"
+    
+    if [[ -z "$query" ]]; then
+        echo "Usage: graphql <url> <query>"
+        return 1
+    fi
+    
+    http POST "$url" Content-Type:application/json query="$query"
+}
+
+# WebSocket test
+ws-test() {
+    local url="$1"
+    
+    if command -v websocat &> /dev/null; then
+        websocat "$url"
+    elif command -v wscat &> /dev/null; then
+        wscat -c "$url"
+    else
+        echo "Install websocat or wscat for WebSocket testing"
+    fi
+}
+
+# Bearer token helper
+bearer() {
+    local token="$1"
+    shift
+    http "$@" "Authorization:Bearer $token"
+}
+
+# Basic auth helper
+basic-auth() {
+    local user="$1"
+    local pass="$2"
+    shift 2
+    http -a "$user:$pass" "$@"
+}
+
