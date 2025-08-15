@@ -93,9 +93,10 @@ safe_apt_update() {
     if sudo apt-get update 2>&1 | \
         grep -v "^E: The repository.*does not have a Release file" | \
         grep -v "^W:.*Key is stored in legacy trusted.gpg" | \
-        grep -v "^W:.*Target.*is configured multiple times" | \
+        grep -v "^W: Target.*is configured multiple times" | \
         grep -v "^N: Updating from such a repository" | \
         grep -v "^N: See apt-secure" | \
+        grep -v "^W: http://dl.google.com/linux/chrome" | \
         grep -v "^$"; then  # Also remove blank lines
         
         # Mark as updated for this session
