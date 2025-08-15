@@ -58,7 +58,6 @@ install_python_dependencies() {
             ;;
     esac
 }
-}
 
 install_pyenv() {
     log_info "Installing pyenv (Python Version Manager)..."
@@ -74,7 +73,6 @@ install_pyenv() {
     curl https://pyenv.run | bash
     
     log_success "pyenv installed successfully"
-}
 }
 
 setup_pyenv_shell_integration() {
@@ -119,7 +117,6 @@ fi
     export PATH="$PYENV_ROOT/bin:$PATH"
     eval "$(pyenv init -)" || true
 }
-}
 
 install_uv() {
     log_info "Installing uv (Fast Python package manager)..."
@@ -136,7 +133,6 @@ install_uv() {
     export PATH="$HOME/.cargo/bin:$PATH"
     
     log_success "uv installed successfully"
-}
 }
 
 setup_uv_shell_integration() {
@@ -166,7 +162,6 @@ venv() {
         echo "No virtual environment found"
     fi
 }
-}
 '
     
     # Add to shell RC files
@@ -180,7 +175,6 @@ venv() {
             fi
         fi
     done
-}
 }
 
 install_python_versions() {
@@ -218,7 +212,6 @@ install_python_versions() {
         pyenv global "$latest_312"
         log_success "Set global Python to $latest_312"
     fi
-}
 }
 
 install_python_tools() {
@@ -275,7 +268,6 @@ export PATH="$HOME/.python-tools/bin:$PATH"
         log_warning "uv not found, skipping Python tools installation"
     fi
 }
-}
 
 setup_pip_config() {
     log_info "Configuring pip..."
@@ -299,7 +291,6 @@ format = columns
 EOF
     
     log_success "pip configured"
-}
 }
 
 create_python_template() {
@@ -360,7 +351,6 @@ EOF
     
     log_success "Python templates created"
 }
-}
 
 # Main installation
 main() {
@@ -397,7 +387,6 @@ main() {
     echo "  black, ruff, mypy, pytest, ipython, jupyter, and more"
     echo
     echo "Note: Restart your shell or run 'source ~/.zshrc' to use pyenv and uv"
-}
 }
 
 main "$@"

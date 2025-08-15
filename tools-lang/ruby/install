@@ -55,7 +55,6 @@ install_ruby_dependencies() {
             ;;
     esac
 }
-}
 
 install_rbenv() {
     log_info "Installing rbenv (Ruby Version Manager)..."
@@ -84,7 +83,6 @@ install_rbenv() {
     git clone https://github.com/rbenv/rbenv-vars.git ~/.rbenv/plugins/rbenv-vars
     
     log_success "rbenv installed successfully"
-}
 }
 
 setup_rbenv_shell_integration() {
@@ -152,7 +150,6 @@ alias irb="irb --simple-prompt"
     export PATH="$HOME/.rbenv/bin:$PATH"
     eval "$(rbenv init -)" || true
 }
-}
 
 install_ruby_versions() {
     log_info "Installing Ruby versions..."
@@ -195,7 +192,6 @@ install_ruby_versions() {
         rbenv rehash
         log_success "Set global Ruby to $latest_33"
     fi
-}
 }
 
 install_ruby_gems() {
@@ -243,7 +239,6 @@ install_ruby_gems() {
     
     log_success "Ruby gems installed"
 }
-}
 
 setup_gem_config() {
     log_info "Configuring RubyGems..."
@@ -262,7 +257,6 @@ benchmark: false
 EOF
     
     log_success "RubyGems configured"
-}
 }
 
 create_ruby_templates() {
@@ -377,7 +371,6 @@ EOF
     
     log_success "Ruby templates created"
 }
-}
 
 # Main installation
 main() {
@@ -407,7 +400,6 @@ main() {
     echo "  bundler, rails, rspec, rubocop, pry, and more"
     echo
     echo "Note: Restart your shell or run 'source ~/.zshrc' to use rbenv"
-}
 }
 
 main "$@"

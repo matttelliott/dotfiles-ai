@@ -1883,3 +1883,176 @@ pgkill() {
     psql -U postgres -c "SELECT pg_terminate_backend($1);"
 }
 
+
+# SQLite aliases
+alias sq="sqlite3"
+alias sql="sqlite3"
+alias sqm="sqlite3 :memory:"  # In-memory database
+alias lite="litecli"
+
+# SQLite functions
+sqopen() {
+    # Open SQLite database with better defaults
+    sqlite3 -column -header "$@"
+}
+
+sqmem() {
+    # Create in-memory database with sample data
+    sqlite3 :memory: "
+        CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);
+        INSERT INTO users VALUES (1, 'Alice', 'alice@example.com');
+        INSERT INTO users VALUES (2, 'Bob', 'bob@example.com');
+        SELECT * FROM users;
+    " -column -header
+}
+
+sqbackup() {
+    # Backup SQLite database
+    if [[ -z "$1" ]]; then
+        echo "Usage: sqbackup database.db"
+        return 1
+    fi
+    sqlite3 "$1" ".backup '${1%.db}_$(date +%Y%m%d_%H%M%S).db'"
+    echo "Backup created: ${1%.db}_$(date +%Y%m%d_%H%M%S).db"
+}
+
+sqtables() {
+    # List tables in database
+    sqlite3 "$1" ".tables"
+}
+
+sqschema() {
+    # Show schema for database or table
+    if [[ -z "$2" ]]; then
+        sqlite3 "$1" ".schema"
+    else
+        sqlite3 "$1" ".schema $2"
+    fi
+}
+
+sqcount() {
+    # Count rows in table
+    sqlite3 "$1" "SELECT COUNT(*) FROM $2;"
+}
+
+sqjson() {
+    # Export table to JSON using sqlite-utils
+    if command -v sqlite-utils &> /dev/null; then
+        sqlite-utils rows "$1" "$2" --json
+    else
+        echo "sqlite-utils not installed"
+    fi
+}
+
+sqcsv() {
+    # Export query results to CSV
+    sqlite3 -csv -header "$1" "$2"
+}
+
+sqweb() {
+    # Open database in datasette web interface
+    if command -v datasette &> /dev/null; then
+        datasette "$1"
+    else
+        echo "datasette not installed"
+    fi
+}
+
+sqvacuum() {
+    # Vacuum and analyze database
+    sqlite3 "$1" "VACUUM; ANALYZE;"
+    echo "Database vacuumed and analyzed"
+}
+
+sqintegrity() {
+    # Check database integrity
+    sqlite3 "$1" "PRAGMA integrity_check;"
+}
+
+source /home/matt/.tmuxinator/completion/tmuxinator.zsh
+
+# Tmuxinator aliases
+alias mux="tmuxinator"
+alias muxn="tmuxinator new"
+alias muxo="tmuxinator open"
+alias muxs="tmuxinator start"
+alias muxst="tmuxinator stop"
+alias muxe="tmuxinator edit"
+alias muxc="tmuxinator copy"
+alias muxd="tmuxinator delete"
+alias muxl="tmuxinator list"
+alias muxi="tmuxinator implode"
+alias muxv="tmuxinator version"
+alias muxdoc="tmuxinator doctor"
+
+# Tmuxinator functions
+mux-create() {
+    # Create new project
+    local name="${1:-project}"
+    tmuxinator new "$name"
+}
+
+mux-start() {
+    # Start or attach to project
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    tmuxinator start "$name"
+}
+
+mux-edit() {
+    # Edit project config
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    tmuxinator edit "$name"
+}
+
+mux-delete() {
+    # Delete project with confirmation
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    read -p "Delete project $name? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        tmuxinator delete "$name"
+    fi
+}
+
+mux-debug() {
+    # Debug project configuration
+    local name="${1}"
+    tmuxinator debug "$name"
+}
+
+# Quick session functions
+dev-session() {
+    # Start development session
+    if tmuxinator list | grep -q "dev"; then
+        tmuxinator start dev
+    else
+        echo "Creating dev session template..."
+        tmuxinator new dev
+    fi
+}
+
+work-session() {
+    # Start work session
+    if tmuxinator list | grep -q "work"; then
+        tmuxinator start work
+    else
+        echo "Creating work session template..."
+        tmuxinator new work
+    fi
+}
+

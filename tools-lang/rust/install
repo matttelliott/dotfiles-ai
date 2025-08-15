@@ -30,7 +30,6 @@ install_rustup() {
     
     log_success "Rust installed successfully"
 }
-}
 
 setup_rust_shell_integration() {
     log_info "Setting up Rust shell integration..."
@@ -79,7 +78,6 @@ alias cargo-audit="cargo install cargo-audit"   # Security audit
         fi
     done
 }
-}
 
 install_rust_components() {
     log_info "Installing Rust components..."
@@ -97,7 +95,6 @@ install_rust_components() {
     rustup component add rust-analyzer # LSP server
     
     log_success "Rust components installed"
-}
 }
 
 install_cargo_tools() {
@@ -164,7 +161,6 @@ install_cargo_tools() {
     
     log_success "Cargo tools installed"
 }
-}
 
 setup_rust_analyzer() {
     log_info "Setting up rust-analyzer for IDE support..."
@@ -184,7 +180,6 @@ setup_rust_analyzer() {
     fi
     
     log_success "rust-analyzer ready for use"
-}
 }
 
 create_rust_template() {
@@ -258,7 +253,6 @@ EOF
     
     log_success "Rust templates created"
 }
-}
 
 setup_sccache() {
     log_info "Setting up sccache for faster compilations..."
@@ -292,7 +286,6 @@ EOF
             log_success "Configured cargo to use sccache"
         fi
     fi
-}
 }
 
 # Main installation
@@ -336,7 +329,6 @@ main() {
     echo "  cargo clippy         - Lint code"
     echo
     echo "Note: Restart your shell or run 'source ~/.cargo/env' to use Rust"
-}
 }
 
 main "$@"

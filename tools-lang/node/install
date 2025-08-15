@@ -24,7 +24,6 @@ detect_shell() {
         SHELL_RC="$HOME/.profile"
     fi
 }
-}
 
 install_nvm() {
     log_info "Installing nvm (Node Version Manager)..."
@@ -58,7 +57,6 @@ install_nvm() {
     
     log_success "nvm installed successfully"
 }
-}
 
 setup_nvm_shell_integration() {
     log_info "Setting up nvm shell integration..."
@@ -87,7 +85,6 @@ load-nvmrc() {
     nvm use default
   fi
 }
-}
 type -t add-zsh-hook >/dev/null 2>&1 && add-zsh-hook chpwd load-nvmrc || true
 load-nvmrc 2>/dev/null || true
 
@@ -112,7 +109,6 @@ alias nvmlts="nvm install --lts && nvm use --lts"
             fi
         fi
     done
-}
 }
 
 install_node() {
@@ -139,7 +135,6 @@ install_node() {
     
     log_success "Node.js $NODE_VERSION installed"
     log_success "npm $NPM_VERSION installed"
-}
 }
 
 install_global_packages() {
@@ -180,7 +175,6 @@ install_global_packages() {
     
     log_success "Global npm packages installed"
 }
-}
 
 setup_npm_config() {
     log_info "Configuring npm..."
@@ -196,7 +190,6 @@ setup_npm_config() {
     
     log_success "npm configured"
 }
-}
 
 create_nvmrc_template() {
     log_info "Creating .nvmrc template..."
@@ -211,7 +204,6 @@ create_nvmrc_template() {
     echo "$NODE_VERSION" > "$HOME/.config/node/nvmrc.template"
     
     log_info "Template .nvmrc created with $NODE_VERSION"
-}
 }
 
 # Main installation
@@ -241,7 +233,6 @@ main() {
     echo "  yarn, pnpm, typescript, prettier, eslint, and more"
     echo
     echo "Note: Restart your shell or run 'source ~/.zshrc' to use nvm"
-}
 }
 
 main "$@"

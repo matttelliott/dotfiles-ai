@@ -42,7 +42,6 @@ detect_platform() {
             ;;
     esac
 }
-}
 
 install_go() {
     log_info "Installing Go..."
@@ -95,7 +94,6 @@ install_go() {
     rm -rf "$TEMP_DIR"
     
     log_success "Go $LATEST_VERSION installed successfully"
-}
 }
 
 setup_go_environment() {
@@ -152,7 +150,6 @@ alias gow="go work"
 gocover() {
     go test -coverprofile=coverage.out "$@" && go tool cover -html=coverage.out
 }
-}
 
 gonew() {
     if [ -z "$1" ]; then
@@ -160,7 +157,6 @@ gonew() {
         return 1
     fi
     mkdir -p "$1" && cd "$1" && go mod init "$1"
-}
 }
 '
     
@@ -181,7 +177,6 @@ gonew() {
     export GOPATH="$HOME/go"
     export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
     export GO111MODULE="on"
-}
 }
 
 install_go_tools() {
@@ -221,7 +216,6 @@ install_go_tools() {
     
     log_success "Go tools installed"
 }
-}
 
 create_go_templates() {
     log_info "Creating Go project templates..."
@@ -243,12 +237,10 @@ func main() {
         log.Fatal(err)
     }
 }
-}
 
 func run() error {
     fmt.Println("Hello, World!")
     return nil
-}
 }
 EOF
     
@@ -368,7 +360,6 @@ EOF
     
     log_success "Go templates created"
 }
-}
 
 setup_air_config() {
     log_info "Creating air configuration for hot reload..."
@@ -423,7 +414,6 @@ EOF
     
     log_success "Air configuration template created"
 }
-}
 
 # Main installation
 main() {
@@ -460,7 +450,6 @@ main() {
     echo "  air                  - Run with hot reload"
     echo
     echo "Note: Restart your shell or run 'source ~/.zshrc' to use Go"
-}
 }
 
 main "$@"
