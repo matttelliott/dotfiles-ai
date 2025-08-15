@@ -161,8 +161,10 @@ install_container_tools() {
         if [[ "$OS" == "macos" ]] && command -v brew &> /dev/null; then
             brew install ctop
         else
-            sudo wget https://github.com/bcicen/ctop/releases/latest/download/ctop-linux-amd64 -O /usr/local/bin/ctop
-            sudo chmod +x /usr/local/bin/ctop
+            # Get latest version and download
+            CTOP_VERSION=$(curl -s https://api.github.com/repos/bcicen/ctop/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+            safe_sudo wget "https://github.com/bcicen/ctop/releases/download/v${CTOP_VERSION}/ctop-${CTOP_VERSION}-linux-amd64" -O /usr/local/bin/ctop
+            safe_sudo chmod +x /usr/local/bin/ctop
         fi
     else
         log_info "ctop already installed"
