@@ -1,25 +1,15 @@
-#!/bin/bash
-# Browser installation and configuration
+#\!/bin/bash
 
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+detect_os
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
 
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+
 
 # Detect OS
 OS="$(uname)"
@@ -54,14 +44,15 @@ install_chrome() {
             ;;
         debian)
             # Add Google Chrome repository
-            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | safe_sudo apt-key add -
             echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-            sudo apt update
-            sudo apt install -y google-chrome-stable
+            safe_sudo apt update
+            safe_sudo apt install -y google-chrome-stable
             ;;
     esac
     
     log_success "Google Chrome installed"
+}
 }
 
 install_firefox() {
@@ -83,12 +74,13 @@ install_firefox() {
         debian)
             # Use Mozilla's official repo for latest version
             sudo add-apt-repository -y ppa:mozillateam/ppa 2>/dev/null || true
-            sudo apt update
-            sudo apt install -y firefox
+            safe_sudo apt update
+            safe_sudo apt install -y firefox
             ;;
     esac
     
     log_success "Firefox installed"
+}
 }
 
 install_brave() {
@@ -111,12 +103,13 @@ install_brave() {
             # Add Brave repository
             sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
             echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
-            sudo apt update
-            sudo apt install -y brave-browser
+            safe_sudo apt update
+            safe_sudo apt install -y brave-browser
             ;;
     esac
     
     log_success "Brave Browser installed"
+}
 }
 
 install_chromium() {
@@ -134,14 +127,15 @@ install_chromium() {
             fi
             ;;
         debian)
-            sudo apt update
-            sudo apt install -y chromium-browser
+            safe_sudo apt update
+            safe_sudo apt install -y chromium-browser
             ;;
     esac
     
     if command -v chromium &> /dev/null || command -v chromium-browser &> /dev/null; then
         log_success "Chromium installed"
     fi
+}
 }
 
 install_ungoogled_chromium() {
@@ -169,6 +163,7 @@ install_ungoogled_chromium() {
     
     log_success "Ungoogled Chromium installation attempted"
 }
+}
 
 install_firefox_developer() {
     log_info "Installing Firefox Developer Edition..."
@@ -189,15 +184,16 @@ install_firefox_developer() {
         debian)
             # Add Mozilla PPA for developer edition
             sudo add-apt-repository -y ppa:mozillateam/firefox-next 2>/dev/null || true
-            sudo apt update
-            sudo apt install -y firefox-trunk || sudo apt install -y firefox-developer-edition || {
+            safe_sudo apt update
+            safe_sudo apt install -y firefox-trunk || safe_sudo apt install -y firefox-developer-edition || {
                 log_info "Installing Firefox Developer Edition via snap..."
-                sudo snap install firefox-developer-edition --beta
+                safe_sudo snap install firefox-developer-edition --beta
             }
             ;;
     esac
     
     log_success "Firefox Developer Edition installed"
+}
 }
 
 install_chrome_canary() {
@@ -226,6 +222,7 @@ install_chrome_canary() {
         log_success "Chrome Canary installed"
     fi
 }
+}
 
 install_opera() {
     log_info "Installing Opera..."
@@ -245,14 +242,15 @@ install_opera() {
             ;;
         debian)
             # Add Opera repository
-            wget -qO- https://deb.opera.com/archive.key | sudo apt-key add -
+            wget -qO- https://deb.opera.com/archive.key | safe_sudo apt-key add -
             echo "deb https://deb.opera.com/opera-stable/ stable non-free" | sudo tee /etc/apt/sources.list.d/opera-stable.list
-            sudo apt update
-            sudo apt install -y opera-stable
+            safe_sudo apt update
+            safe_sudo apt install -y opera-stable
             ;;
     esac
     
     log_success "Opera installed"
+}
 }
 
 install_vivaldi() {
@@ -273,14 +271,15 @@ install_vivaldi() {
             ;;
         debian)
             # Add Vivaldi repository
-            wget -qO- https://repo.vivaldi.com/archive/linux_signing_key.pub | sudo apt-key add -
+            wget -qO- https://repo.vivaldi.com/archive/linux_signing_key.pub | safe_sudo apt-key add -
             echo "deb https://repo.vivaldi.com/archive/deb/ stable main" | sudo tee /etc/apt/sources.list.d/vivaldi.list
-            sudo apt update
-            sudo apt install -y vivaldi-stable
+            safe_sudo apt update
+            safe_sudo apt install -y vivaldi-stable
             ;;
     esac
     
     log_success "Vivaldi installed"
+}
 }
 
 setup_browser_aliases() {
@@ -336,6 +335,7 @@ clear-chrome-cache() {
     fi
     echo "Chrome cache cleared"
 }
+}
 
 clear-firefox-cache() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -345,6 +345,7 @@ clear-firefox-cache() {
     fi
     echo "Firefox cache cleared"
 }
+}
 
 # Kill all browser processes
 kill-browsers() {
@@ -353,15 +354,18 @@ kill-browsers() {
     pkill -f brave || true
     echo "All browser processes killed"
 }
+}
 
 # Browser profiles
 chrome-profile() {
     local profile="${1:-Default}"
     chrome --profile-directory="$profile"
 }
+}
 
 firefox-profile() {
     firefox -P "$1"
+}
 }
 '
     
@@ -376,6 +380,7 @@ firefox-profile() {
             fi
         fi
     done
+}
 }
 
 create_browser_configs() {
@@ -482,6 +487,7 @@ EOF
     
     log_success "Browser configurations created"
 }
+}
 
 # Main installation
 main() {
@@ -566,6 +572,7 @@ main() {
     echo
     echo "Configuration files in ~/.config/browsers/"
     echo "Use 'chrome', 'firefox', 'brave' aliases to launch"
+}
 }
 
 main "$@"

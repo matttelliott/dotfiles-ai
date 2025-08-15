@@ -26,7 +26,7 @@ install_bat() {
             ;;
         debian|mint)
             # Try apt first
-            if safe_sudo apt install -y bat 2>/dev/null; then
+            if safe_safe_sudo apt install -y bat 2>/dev/null; then
                 log_success "bat installed via apt"
             else
                 # Fall back to GitHub releases

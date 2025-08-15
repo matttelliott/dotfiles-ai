@@ -8,6 +8,36 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
+install_postgres_client() {
+    log_info "Installing postgresql-client..."
+    
+    if command -v postgresql-client &> /dev/null; then
+        log_info "postgresql-client is already installed"
+        return 0
+    fi
+    
+    case "$OS" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install postgresql-client
+            else
+                log_error "Homebrew not found"
+                exit 1
+            fi
+            ;;
+        debian|mint)
+            safe_apt_update
+            safe_safe_sudo apt install -y postgresql-client
+            ;;
+        *)
+            log_warning "Please install postgresql-client manually for your OS"
+            ;;
+    esac
+    
+    log_success "postgresql-client installed"
+}
+
+
 install_pgcli() {
     log_info "Installing pgcli (enhanced PostgreSQL CLI)..."
     

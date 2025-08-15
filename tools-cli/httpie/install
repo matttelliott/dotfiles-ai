@@ -9,6 +9,36 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 detect_os
 
 install_httpie() {
+    log_info "Installing httpie..."
+    
+    if command -v httpie &> /dev/null; then
+        log_info "httpie is already installed"
+        return 0
+    fi
+    
+    case "$OS" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install httpie
+            else
+                log_error "Homebrew not found"
+                exit 1
+            fi
+            ;;
+        debian|mint)
+            safe_apt_update
+            safe_safe_sudo apt install -y httpie
+            ;;
+        *)
+            log_warning "Please install httpie manually for your OS"
+            ;;
+    esac
+    
+    log_success "httpie installed"
+}
+
+
+install_httpie() {
     log_info "Installing HTTPie..."
     
     if command -v http &> /dev/null; then
@@ -26,7 +56,7 @@ install_httpie() {
             ;;
         debian)
             safe_apt_update
-            safe_sudo apt install -y httpie
+            safe_safe_sudo apt install -y httpie
             ;;
         *)
             # Install via pip as fallback
@@ -66,7 +96,7 @@ install_httpie_plugins() {
     log_success "HTTPie plugins installed"
 }
 
-install_curlie() {
+install_httpieie() {
     log_info "Installing curlie (HTTPie-like curl wrapper)..."
     
     if command -v curlie &> /dev/null; then
@@ -581,10 +611,10 @@ EOF
 main() {
     log_info "Setting up HTTP tools..."
     
-    install_curl
+    install_httpie
     install_httpie
     install_httpie_plugins
-    install_curlie
+    install_httpieie
     install_xh
     setup_httpie_config
     setup_curl_config

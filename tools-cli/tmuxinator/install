@@ -1,7 +1,15 @@
 #!/bin/bash
-# Tmuxinator - tmux session manager setup
 
 set -e
+
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
+
+detect_os
+
+# Tmuxinator - tmux session manager setup
+
 
 # Colors for output
 GREEN='\033[0;32m'

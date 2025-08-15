@@ -488,10 +488,29 @@ EOF
 }
 
 # Main installation
+install_monitoring_tools() {
+    log_info "Installing core monitoring tools..."
+    
+    # Install htop first
+    if ! command -v htop &> /dev/null; then
+        case "$OS" in
+            macos)
+                if command -v brew &> /dev/null; then
+                    brew install htop
+                fi
+                ;;
+            debian|mint)
+                safe_apt_update
+                safe_sudo apt install -y htop
+                ;;
+        esac
+    fi
+}
+
 main() {
     log_info "Setting up system monitoring tools..."
     
-    install_htop
+    install_monitoring_tools
     install_btop
     install_glances
     install_ncdu

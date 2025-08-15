@@ -907,3 +907,206 @@ export RUSTC_WRAPPER="sccache"
 export SCCACHE_DIR="$HOME/.cache/sccache"
 export SCCACHE_CACHE_SIZE="10G"
 
+
+# 1PASSWORD_INTEGRATION
+# 1Password CLI integration
+export OP_BIOMETRIC_UNLOCK_ENABLED=true
+export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"
+
+# 1Password CLI aliases
+alias ops='eval $(op signin)'
+alias opget='op item get'
+alias oplist='op item list'
+alias opssh='op ssh'
+
+# Function to get credentials from 1Password
+op-get-password() {
+    if [ -z "$1" ]; then
+        echo "Usage: op-get-password <item-name>"
+        return 1
+    fi
+    op item get "$1" --fields password
+}
+
+# Function to generate and add SSH key to 1Password
+op-add-ssh-key() {
+    if [ -z "$1" ]; then
+        echo "Usage: op-add-ssh-key <key-name>"
+        echo "This will generate a new SSH key and store it in 1Password"
+        return 1
+    fi
+    op ssh generate --title "$1"
+}
+
+# Function to list SSH keys in 1Password
+op-list-ssh-keys() {
+    op item list --categories "SSH Key"
+}
+
+# AWS CLI completion
+autoload bashcompinit && bashcompinit
+complete -C '/usr/local/bin/aws_completer' aws
+
+# AWS aliases
+alias awsw="aws sts get-caller-identity"  # whoami
+alias awsp="aws configure list-profiles"  # list profiles
+alias awsr="aws configure get region"     # current region
+
+# Profile switching
+awsprofile() {
+    export AWS_PROFILE="$1"
+    echo "Switched to AWS profile: $1"
+    aws sts get-caller-identity
+}
+
+# SSO login helper
+awssso() {
+    aws sso login --profile "${1:-default}"
+}
+
+# EC2
+alias ec2ls="aws ec2 describe-instances --output table --query 'Reservations[].Instances[].{ID:InstanceId,Type:InstanceType,State:State.Name,Name:Tags[?Key==`Name`]|[0].Value}'"
+alias ec2running="aws ec2 describe-instances --filters Name=instance-state-name,Values=running --output table"
+alias ec2stop="aws ec2 stop-instances --instance-ids"
+alias ec2start="aws ec2 start-instances --instance-ids"
+alias ec2terminate="aws ec2 terminate-instances --instance-ids"
+
+# S3
+alias s3ls="aws s3 ls"
+alias s3mb="aws s3 mb"  # make bucket
+alias s3rb="aws s3 rb"  # remove bucket
+alias s3cp="aws s3 cp"
+alias s3mv="aws s3 mv"
+alias s3rm="aws s3 rm"
+alias s3sync="aws s3 sync"
+
+# Lambda
+alias lambdals="aws lambda list-functions --output table"
+alias lambdainvoke="aws lambda invoke"
+alias lambdalogs="aws logs tail --follow"
+
+# CloudFormation
+alias cfnls="aws cloudformation list-stacks --output table"
+alias cfndescribe="aws cloudformation describe-stacks"
+alias cfnevents="aws cloudformation describe-stack-events"
+alias cfndelete="aws cloudformation delete-stack"
+
+# CloudWatch Logs
+alias cwlogs="aws logs tail"
+alias cwlogsf="aws logs tail --follow"
+alias cwgroups="aws logs describe-log-groups --output table"
+
+# ECS
+alias ecsls="aws ecs list-clusters"
+alias ecsservices="aws ecs list-services"
+alias ecstasks="aws ecs list-tasks"
+
+# RDS
+alias rdsls="aws rds describe-db-instances --output table"
+
+# DynamoDB
+alias ddbls="aws dynamodb list-tables"
+alias ddbdescribe="aws dynamodb describe-table"
+
+# IAM
+alias iamusers="aws iam list-users --output table"
+alias iamroles="aws iam list-roles --output table"
+alias iampolicies="aws iam list-policies --scope Local --output table"
+
+# Cost Explorer
+awscost() {
+    aws ce get-cost-and-usage \
+        --time-period Start=$(date -u -d '30 days ago' '+%Y-%m-%d'),End=$(date -u '+%Y-%m-%d') \
+        --granularity MONTHLY \
+        --metrics UnblendedCost \
+        --group-by Type=DIMENSION,Key=SERVICE \
+        --output table
+}
+
+# Get AWS account ID
+awsaccount() {
+    aws sts get-caller-identity --query Account --output text
+}
+
+# List all resources in a region
+awsresources() {
+    aws resourcegroupstaggingapi get-resources --region "${1:-us-east-1}"
+}
+
+# AWS Vault shortcuts
+alias av="aws-vault"
+alias ave="aws-vault exec"
+alias avl="aws-vault list"
+alias avs="aws-vault login"
+
+# SAM shortcuts
+alias sami="sam init"
+alias samb="sam build"
+alias samd="sam deploy"
+alias saml="sam local start-api"
+alias samlog="sam logs"
+
+# EKS shortcuts
+alias eksls="eksctl get clusters"
+alias eksnodes="kubectl get nodes"
+
+
+# Docker aliases
+alias d="docker"
+alias dc="docker compose"
+alias dps="docker ps"
+alias dpsa="docker ps -a"
+alias di="docker images"
+alias dex="docker exec -it"
+alias dl="docker logs"
+alias dlf="docker logs -f"
+alias dstop="docker stop"
+alias dstart="docker start"
+alias drm="docker rm"
+alias drmi="docker rmi"
+alias dprune="docker system prune -a"
+alias dvol="docker volume ls"
+alias dnet="docker network ls"
+
+# Docker Compose aliases
+alias dcu="docker compose up"
+alias dcud="docker compose up -d"
+alias dcd="docker compose down"
+alias dcl="docker compose logs"
+alias dclf="docker compose logs -f"
+alias dcps="docker compose ps"
+alias dcr="docker compose restart"
+alias dcb="docker compose build"
+alias dce="docker compose exec"
+
+# Docker functions
+dsh() {
+    # Shell into container
+    docker exec -it "$1" /bin/bash 2>/dev/null || docker exec -it "$1" /bin/sh
+}
+
+dclean() {
+    # Clean up everything
+    docker stop $(docker ps -aq) 2>/dev/null || true
+    docker rm $(docker ps -aq) 2>/dev/null || true
+    docker rmi $(docker images -q) 2>/dev/null || true
+    docker volume prune -f
+    docker network prune -f
+}
+
+dbuild() {
+    # Build with cache options
+    docker build --no-cache -t "$1" .
+}
+
+# Colima aliases (macOS)
+if command -v colima &> /dev/null; then
+    alias cols="colima start"
+    alias colst="colima stop"
+    alias colstat="colima status"
+    alias colr="colima restart"
+fi
+
+# Container tools
+alias lzd="lazydocker"
+

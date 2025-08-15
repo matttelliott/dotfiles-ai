@@ -6,6 +6,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../../utils/common.sh"
 
+detect_os
+
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
@@ -36,7 +38,7 @@ install_fzf() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_sudo apt install -y fzf
+            safe_safe_sudo apt install -y fzf
             ;;
         *)
             # Fallback: Install from git

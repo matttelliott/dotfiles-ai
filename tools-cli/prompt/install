@@ -1,7 +1,15 @@
 #!/bin/bash
-# Starship prompt setup script
 
 set -e
+
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
+
+detect_os
+
+# Starship prompt setup script
+
 
 # Colors for output
 GREEN='\033[0;32m'

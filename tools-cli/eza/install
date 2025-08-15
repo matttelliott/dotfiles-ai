@@ -8,6 +8,36 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
+install_eza() {
+    log_info "Installing eza..."
+    
+    if command -v eza &> /dev/null; then
+        log_info "eza is already installed"
+        return 0
+    fi
+    
+    case "$OS" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install eza
+            else
+                log_error "Homebrew not found"
+                exit 1
+            fi
+            ;;
+        debian|mint)
+            safe_apt_update
+            safe_safe_sudo apt install -y eza
+            ;;
+        *)
+            log_warning "Please install eza manually for your OS"
+            ;;
+    esac
+    
+    log_success "eza installed"
+}
+
+
 install_from_apt() {
     # For newer Debian/Ubuntu versions, eza might be available
     log_info "Checking if eza is available in apt..."
@@ -16,7 +46,7 @@ install_from_apt() {
     if [[ "$OS" == "debian" ]]; then
         # Install GPG if not present
         safe_apt_update
-        safe_sudo apt install -y gpg
+        safe_safe_sudo apt install -y gpg
         
         # Add eza repository
         sudo mkdir -p /etc/apt/keyrings
@@ -25,7 +55,7 @@ install_from_apt() {
         sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
         safe_apt_update
         
-        if safe_sudo apt install -y eza; then
+        if safe_safe_sudo apt install -y eza; then
             return 0
         fi
     fi

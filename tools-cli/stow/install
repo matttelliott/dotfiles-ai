@@ -23,10 +23,10 @@ install_stow() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_sudo apt-get install -y stow
+            safe_safe_sudo apt-get install -y stow
             ;;
         fedora)
-            safe_sudo dnf install -y stow
+            safe_safe_sudo dnf install -y stow
             ;;
         arch)
             safe_sudo pacman -S --noconfirm stow
@@ -35,8 +35,8 @@ install_stow() {
             log_error "Unsupported OS for automatic stow installation"
             echo "Please install GNU Stow manually:"
             echo "  - macOS: brew install stow"
-            echo "  - Debian/Ubuntu: sudo apt install stow"
-            echo "  - Fedora: sudo dnf install stow"
+            echo "  - Debian/Ubuntu: safe_sudo apt install stow"
+            echo "  - Fedora: safe_sudo dnf install stow"
             echo "  - Arch: sudo pacman -S stow"
             exit 1
             ;;
