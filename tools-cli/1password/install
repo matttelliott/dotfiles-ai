@@ -33,19 +33,39 @@ install_1password_cli_macos() {
 install_1password_cli_debian() {
     log_info "Installing 1Password CLI on Debian/Ubuntu..."
     
-    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
-        sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+    # Add GPG key if not already present
+    if [[ ! -f /usr/share/keyrings/1password-archive-keyring.gpg ]]; then
+        curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+            safe_sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+    else
+        log_info "1Password GPG key already present"
+    fi
     
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
-        sudo tee /etc/apt/sources.list.d/1password.list
+    # Add repository if not already present
+    if [[ ! -f /etc/apt/sources.list.d/1password.list ]]; then
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+            safe_sudo tee /etc/apt/sources.list.d/1password.list > /dev/null
+    else
+        log_info "1Password repository already configured"
+    fi
     
-    sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
-    curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
-        sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
+    # Add debsig policy if not already present
+    if [[ ! -f /etc/debsig/policies/AC2D62742012EA22/1password.pol ]]; then
+        safe_sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
+        curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
+            safe_sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol > /dev/null
+    else
+        log_info "1Password debsig policy already present"
+    fi
     
-    sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
-    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
-        sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+    # Add debsig keyring if not already present
+    if [[ ! -f /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg ]]; then
+        safe_sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
+        curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+            safe_sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+    else
+        log_info "1Password debsig keyring already present"
+    fi
     
     safe_apt_update && safe_sudo apt install -y 1password-cli
 }
