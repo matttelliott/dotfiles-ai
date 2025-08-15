@@ -27,7 +27,7 @@ install_postgres_client() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y postgresql-client
+            safe_sudo apt install -y postgresql-client
             ;;
         *)
             log_warning "Please install postgresql-client manually for your OS"

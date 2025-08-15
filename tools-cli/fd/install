@@ -27,7 +27,7 @@ install_fd() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y fd-find
+            safe_sudo apt install -y fd-find
             ;;
         *)
             log_warning "Please install fd-find manually for your OS"

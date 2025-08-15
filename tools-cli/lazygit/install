@@ -27,7 +27,7 @@ install_lazygit() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y lazygit
+            safe_sudo apt install -y lazygit
             ;;
         *)
             log_warning "Please install lazygit manually for your OS"

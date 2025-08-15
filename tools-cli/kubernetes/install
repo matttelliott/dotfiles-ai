@@ -27,7 +27,7 @@ install_kubectl() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y kubectl
+            safe_sudo apt install -y kubectl
             ;;
         *)
             log_warning "Please install kubectl manually for your OS"

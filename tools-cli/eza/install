@@ -27,7 +27,7 @@ install_eza() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y eza
+            safe_sudo apt install -y eza
             ;;
         *)
             log_warning "Please install eza manually for your OS"
@@ -46,7 +46,7 @@ install_from_apt() {
     if [[ "$OS" == "debian" ]]; then
         # Install GPG if not present
         safe_apt_update
-        safe_safe_sudo apt install -y gpg
+        safe_sudo apt install -y gpg
         
         # Add eza repository
         sudo mkdir -p /etc/apt/keyrings
@@ -55,7 +55,7 @@ install_from_apt() {
         sudo chmod 644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
         safe_apt_update
         
-        if safe_safe_sudo apt install -y eza; then
+        if safe_sudo apt install -y eza; then
             return 0
         fi
     fi

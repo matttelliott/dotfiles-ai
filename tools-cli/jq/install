@@ -29,16 +29,16 @@ install_jq() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y jq
+            safe_sudo apt install -y jq
             ;;
         *)
             # Generic Linux installation
             if command -v apt &> /dev/null; then
-                safe_apt_update && safe_safe_sudo apt install -y jq
+                safe_apt_update && safe_sudo apt install -y jq
             elif command -v yum &> /dev/null; then
-                safe_safe_sudo yum install -y jq
+                safe_sudo yum install -y jq
             elif command -v dnf &> /dev/null; then
-                safe_safe_sudo dnf install -y jq
+                safe_sudo dnf install -y jq
             elif command -v pacman &> /dev/null; then
                 safe_sudo pacman -S --noconfirm jq
             else

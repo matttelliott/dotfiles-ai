@@ -51,7 +51,7 @@ install_neovim() {
             if ! command -v jq &> /dev/null; then
                 log_info "Installing jq (needed for installation)..."
                 safe_apt_update
-                safe_safe_sudo apt install -y jq
+                safe_sudo apt install -y jq
             fi
             
             log_info "Downloading latest Neovim from GitHub releases..."
@@ -101,9 +101,9 @@ install_neovim() {
         linux)
             # Generic Linux - try to use package manager or AppImage
             if command -v apt &> /dev/null; then
-                safe_apt_update && safe_safe_sudo apt install -y neovim
+                safe_apt_update && safe_sudo apt install -y neovim
             elif command -v dnf &> /dev/null; then
-                safe_safe_sudo dnf install -y neovim
+                safe_sudo dnf install -y neovim
             elif command -v pacman &> /dev/null; then
                 safe_sudo pacman -S --noconfirm neovim
             else
@@ -129,7 +129,7 @@ install_dependencies() {
                 brew install ripgrep
                 ;;
             debian)
-                safe_apt_update && safe_safe_sudo apt install -y ripgrep
+                safe_apt_update && safe_sudo apt install -y ripgrep
                 ;;
             *)
                 log_warning "Please install ripgrep manually for full functionality"
@@ -145,7 +145,7 @@ install_dependencies() {
                 brew install fd
                 ;;
             debian)
-                safe_apt_update && safe_safe_sudo apt install -y fd-find
+                safe_apt_update && safe_sudo apt install -y fd-find
                 # Create symlink for fd
                 mkdir -p "$HOME/.local/bin"
                 ln -sf $(which fdfind) "$HOME/.local/bin/fd" 2>/dev/null || true

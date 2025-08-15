@@ -27,7 +27,7 @@ install_nmap() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y nmap
+            safe_sudo apt install -y nmap
             ;;
         *)
             log_warning "Please install nmap manually for your OS"
@@ -53,7 +53,7 @@ install_netcat() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y netcat-openbsd
+            safe_sudo apt install -y netcat-openbsd
             ;;
     esac
     
@@ -78,7 +78,7 @@ install_mtr() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y mtr
+            safe_sudo apt install -y mtr
             ;;
     esac
     
@@ -100,7 +100,7 @@ install_tcpdump() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y tcpdump
+            safe_sudo apt install -y tcpdump
             ;;
     esac
     
@@ -121,7 +121,7 @@ install_iperf() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y iperf3
+            safe_sudo apt install -y iperf3
             ;;
     esac
     
@@ -142,7 +142,7 @@ install_dig() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y dnsutils
+            safe_sudo apt install -y dnsutils
             ;;
     esac
     
@@ -164,7 +164,7 @@ install_traceroute() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y traceroute
+            safe_sudo apt install -y traceroute
             ;;
     esac
     
@@ -185,7 +185,7 @@ install_whois() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y whois
+            safe_sudo apt install -y whois
             ;;
     esac
     
@@ -206,7 +206,7 @@ install_socat() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y socat
+            safe_sudo apt install -y socat
             ;;
     esac
     
@@ -227,7 +227,7 @@ install_telnet() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y telnet
+            safe_sudo apt install -y telnet
             ;;
     esac
     
@@ -251,7 +251,7 @@ install_speedtest() {
         debian)
             # Official speedtest
             curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
-            safe_safe_sudo apt install -y speedtest
+            safe_sudo apt install -y speedtest
             ;;
     esac
     

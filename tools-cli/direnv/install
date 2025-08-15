@@ -27,7 +27,7 @@ install_direnv() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y direnv
+            safe_sudo apt install -y direnv
             ;;
         *)
             # Install from binary release

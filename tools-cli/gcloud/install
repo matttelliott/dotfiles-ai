@@ -27,7 +27,7 @@ install_gcloud_cli() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y gcloud
+            safe_sudo apt install -y gcloud
             ;;
         *)
             log_warning "Please install gcloud manually for your OS"

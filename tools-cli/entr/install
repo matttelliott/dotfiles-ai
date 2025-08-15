@@ -27,7 +27,7 @@ install_entr() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y entr
+            safe_sudo apt install -y entr
             ;;
         *)
             log_warning "Please install entr manually for your OS"
@@ -84,7 +84,7 @@ install_fswatch() {
             ;;
         debian)
             safe_apt_update
-            safe_safe_sudo apt install -y fswatch
+            safe_sudo apt install -y fswatch
             ;;
         linux)
             log_info "fswatch may not be available, skipping..."

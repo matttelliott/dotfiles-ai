@@ -38,7 +38,7 @@ install_fzf() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y fzf
+            safe_sudo apt install -y fzf
             ;;
         *)
             # Fallback: Install from git

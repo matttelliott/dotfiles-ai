@@ -27,7 +27,7 @@ install_htop() {
             ;;
         debian|mint)
             safe_apt_update
-            safe_safe_sudo apt install -y htop
+            safe_sudo apt install -y htop
             ;;
         *)
             log_warning "Please install htop manually for your OS"

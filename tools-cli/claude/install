@@ -41,10 +41,10 @@ install_nodejs() {
         log_info "Installing Node.js on Linux..."
         if command -v apt-get &> /dev/null; then
             curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-            safe_safe_sudo apt-get install -y nodejs
+            safe_sudo apt-get install -y nodejs
         elif command -v yum &> /dev/null; then
             curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
-            safe_safe_sudo yum install -y nodejs npm
+            safe_sudo yum install -y nodejs npm
         else
             log_error "Unsupported Linux distribution"
             return 1
