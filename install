@@ -138,10 +138,20 @@ install_tool() {
     if command -v stow &> /dev/null; then
         if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
             log_info "Stowing $tool_name configs..."
-            # Get the relative path from STOW_DIR to tool_path
-            local rel_path="${tool_path#$STOW_DIR/}"
-            (cd "$STOW_DIR" && stow -t "$TARGET_DIR" -R "$rel_path")
-            log_success "$tool_name configs linked"
+            # Need to cd to the category directory for stow to work
+            local category_dir="$(dirname "$tool_path")"
+            local tool_basename="$(basename "$tool_path")"
+            
+            # Use -R (restow) to remove any existing links and create new ones
+            # This ensures we always use configs from the dotfiles repo
+            if (cd "$category_dir" && stow -t "$TARGET_DIR" -R "$tool_basename" 2>&1 | grep -q "WARNING.*conflicts"); then
+                log_warning "Config conflicts detected for $tool_name - backup existing configs first"
+                log_info "Run: mv ~/.config/$tool_name ~/.config/$tool_name.backup"
+            elif (cd "$category_dir" && stow -t "$TARGET_DIR" -R "$tool_basename" 2>/dev/null); then
+                log_success "$tool_name configs linked"
+            else
+                log_warning "Could not stow $tool_name configs"
+            fi
         fi
     else
         if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
