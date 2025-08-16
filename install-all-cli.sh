@@ -36,13 +36,13 @@ FAILED_TOOLS=()
 install_tool() {
     local category="$1"
     local tool="$2"
-    local setup_path="$category/$tool/setup.sh"
+    local install_path="$category/$tool/install"
     
     ((TOTAL_TOOLS++))
     
-    if [[ -f "$setup_path" ]]; then
+    if [[ -f "$install_path" ]]; then
         log_info "[$TOTAL_TOOLS] Installing $tool..."
-        if bash "$setup_path" > /dev/null 2>&1; then
+        if bash "$install_path" > /dev/null 2>&1; then
             INSTALLED_TOOLS+=("$tool")
             log_success "$tool installed"
         else
@@ -50,8 +50,8 @@ install_tool() {
             log_error "Failed to install $tool"
         fi
     else
-        FAILED_TOOLS+=("$tool (setup script not found)")
-        log_warning "Setup script not found for $tool"
+        FAILED_TOOLS+=("$tool (install script not found)")
+        log_warning "Install script not found for $tool"
     fi
 }
 
@@ -175,7 +175,7 @@ main() {
     install_tool "tools-lang" "node"
     install_tool "tools-lang" "python"
     install_tool "tools-lang" "go"
-    install_tool "tools-lang" "rust"
+    # install_tool "tools-lang" "rust"  # Temporarily disabled for faster testing
     install_tool "tools-lang" "ruby"
     
     # Utilities

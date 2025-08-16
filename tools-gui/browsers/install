@@ -11,22 +11,6 @@ detect_os
 
 
 
-# Detect OS
-OS="$(uname)"
-if [[ "$OS" == "Darwin" ]]; then
-    PLATFORM="macos"
-elif [[ "$OS" == "Linux" ]]; then
-    if [[ -f /etc/debian_version ]]; then
-        PLATFORM="debian"
-    else
-        PLATFORM="linux"
-    fi
-else
-    log_warning "Unknown platform: $OS"
-    exit 1
-fi
-
-install_chrome() {
     log_info "Installing Google Chrome..."
     
     if command -v google-chrome &> /dev/null || command -v google-chrome-stable &> /dev/null || [[ -d "/Applications/Google Chrome.app" ]]; then
@@ -34,7 +18,7 @@ install_chrome() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask google-chrome
@@ -42,7 +26,7 @@ install_chrome() {
                 log_warning "Please install Chrome manually from https://www.google.com/chrome/"
             fi
             ;;
-        debian)
+        debian|mint)
             # Add Google Chrome repository
             wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | safe_sudo apt-key add -
             echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
@@ -53,7 +37,6 @@ install_chrome() {
     
     log_success "Google Chrome installed"
 }
-}
 
 install_firefox() {
     log_info "Installing Firefox..."
@@ -63,7 +46,7 @@ install_firefox() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask firefox
@@ -71,7 +54,7 @@ install_firefox() {
                 log_warning "Please install Firefox manually from https://www.mozilla.org/firefox/"
             fi
             ;;
-        debian)
+        debian|mint)
             # Use Mozilla's official repo for latest version
             sudo add-apt-repository -y ppa:mozillateam/ppa 2>/dev/null || true
             safe_sudo apt update
@@ -80,7 +63,6 @@ install_firefox() {
     esac
     
     log_success "Firefox installed"
-}
 }
 
 install_brave() {
@@ -91,7 +73,7 @@ install_brave() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask brave-browser
@@ -99,7 +81,7 @@ install_brave() {
                 log_warning "Please install Brave manually from https://brave.com/"
             fi
             ;;
-        debian)
+        debian|mint)
             # Add Brave repository
             sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
             echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
@@ -110,7 +92,6 @@ install_brave() {
     
     log_success "Brave Browser installed"
 }
-}
 
 install_chromium() {
     log_info "Installing Chromium (open-source Chrome)..."
@@ -120,13 +101,13 @@ install_chromium() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask chromium
             fi
             ;;
-        debian)
+        debian|mint)
             safe_sudo apt update
             safe_sudo apt install -y chromium-browser
             ;;
@@ -135,7 +116,6 @@ install_chromium() {
     if command -v chromium &> /dev/null || command -v chromium-browser &> /dev/null; then
         log_success "Chromium installed"
     fi
-}
 }
 
 install_ungoogled_chromium() {
@@ -146,7 +126,7 @@ install_ungoogled_chromium() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask eloston-chromium
@@ -154,7 +134,7 @@ install_ungoogled_chromium() {
                 log_warning "Please install Ungoogled Chromium manually from https://ungoogled-software.github.io/"
             fi
             ;;
-        debian)
+        debian|mint)
             # More complex on Linux, provide instructions
             log_info "For Ungoogled Chromium on Linux, visit:"
             log_info "https://ungoogled-software.github.io/ungoogled-chromium-binaries/"
@@ -162,7 +142,6 @@ install_ungoogled_chromium() {
     esac
     
     log_success "Ungoogled Chromium installation attempted"
-}
 }
 
 install_firefox_developer() {
@@ -173,7 +152,7 @@ install_firefox_developer() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask firefox-developer-edition
@@ -181,19 +160,32 @@ install_firefox_developer() {
                 log_warning "Please install Firefox Developer Edition manually"
             fi
             ;;
-        debian)
-            # Add Mozilla PPA for developer edition
-            sudo add-apt-repository -y ppa:mozillateam/firefox-next 2>/dev/null || true
-            safe_sudo apt update
-            safe_sudo apt install -y firefox-trunk || safe_sudo apt install -y firefox-developer-edition || {
-                log_info "Installing Firefox Developer Edition via snap..."
-                safe_sudo snap install firefox-developer-edition --beta
+        debian|mint)
+            # Firefox Developer Edition is not in standard repos for Debian/Ubuntu
+            # Download and install manually
+            log_info "Downloading Firefox Developer Edition..."
+            local ff_dev_url="https://download.mozilla.org/?product=firefox-devedition-latest-ssl&os=linux64&lang=en-US"
+            local temp_dir="/tmp/firefox-dev-$$"
+            mkdir -p "$temp_dir"
+            
+            wget -O "$temp_dir/firefox-dev.tar.bz2" "$ff_dev_url" || {
+                log_warning "Failed to download Firefox Developer Edition"
+                return 1
             }
+            
+            # Extract to /opt
+            safe_sudo tar -xjf "$temp_dir/firefox-dev.tar.bz2" -C /opt/
+            safe_sudo mv /opt/firefox /opt/firefox-developer-edition
+            
+            # Create desktop entry and symlink
+            safe_sudo ln -sf /opt/firefox-developer-edition/firefox /usr/local/bin/firefox-developer-edition
+            
+            # Clean up
+            rm -rf "$temp_dir"
             ;;
     esac
     
     log_success "Firefox Developer Edition installed"
-}
 }
 
 install_chrome_canary() {
@@ -204,7 +196,7 @@ install_chrome_canary() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask google-chrome-canary
@@ -212,7 +204,7 @@ install_chrome_canary() {
                 log_warning "Please install Chrome Canary manually from https://www.google.com/chrome/canary/"
             fi
             ;;
-        debian)
+        debian|mint)
             log_info "Chrome Canary is not officially available for Linux"
             log_info "Consider using Chrome Dev or Chrome Beta instead"
             ;;
@@ -221,7 +213,6 @@ install_chrome_canary() {
     if [[ -d "/Applications/Google Chrome Canary.app" ]]; then
         log_success "Chrome Canary installed"
     fi
-}
 }
 
 install_opera() {
@@ -232,7 +223,7 @@ install_opera() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask opera
@@ -240,7 +231,7 @@ install_opera() {
                 log_warning "Please install Opera manually from https://www.opera.com/"
             fi
             ;;
-        debian)
+        debian|mint)
             # Add Opera repository
             wget -qO- https://deb.opera.com/archive.key | safe_sudo apt-key add -
             echo "deb https://deb.opera.com/opera-stable/ stable non-free" | sudo tee /etc/apt/sources.list.d/opera-stable.list
@@ -251,7 +242,6 @@ install_opera() {
     
     log_success "Opera installed"
 }
-}
 
 install_vivaldi() {
     log_info "Installing Vivaldi..."
@@ -261,7 +251,7 @@ install_vivaldi() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask vivaldi
@@ -269,7 +259,7 @@ install_vivaldi() {
                 log_warning "Please install Vivaldi manually from https://vivaldi.com/"
             fi
             ;;
-        debian)
+        debian|mint)
             # Add Vivaldi repository
             wget -qO- https://repo.vivaldi.com/archive/linux_signing_key.pub | safe_sudo apt-key add -
             echo "deb https://repo.vivaldi.com/archive/deb/ stable main" | sudo tee /etc/apt/sources.list.d/vivaldi.list
@@ -279,7 +269,6 @@ install_vivaldi() {
     esac
     
     log_success "Vivaldi installed"
-}
 }
 
 setup_browser_aliases() {
@@ -335,7 +324,6 @@ clear-chrome-cache() {
     fi
     echo "Chrome cache cleared"
 }
-}
 
 clear-firefox-cache() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -345,7 +333,6 @@ clear-firefox-cache() {
     fi
     echo "Firefox cache cleared"
 }
-}
 
 # Kill all browser processes
 kill-browsers() {
@@ -354,18 +341,15 @@ kill-browsers() {
     pkill -f brave || true
     echo "All browser processes killed"
 }
-}
 
 # Browser profiles
 chrome-profile() {
     local profile="${1:-Default}"
     chrome --profile-directory="$profile"
 }
-}
 
 firefox-profile() {
     firefox -P "$1"
-}
 }
 '
     
@@ -380,7 +364,6 @@ firefox-profile() {
             fi
         fi
     done
-}
 }
 
 create_browser_configs() {
@@ -487,7 +470,6 @@ EOF
     
     log_success "Browser configurations created"
 }
-}
 
 # Main installation
 main() {
@@ -510,7 +492,9 @@ main() {
     echo "12) All browsers"
     echo "13) Skip browser installation"
     
-    read -p "Enter your choice (1-13): " choice
+    # Default to installing all browsers (option 12)
+    choice=12
+    log_info "Auto-selecting option 12: Installing all browsers..."
     
     case $choice in
         1) install_chrome ;;
@@ -572,7 +556,6 @@ main() {
     echo
     echo "Configuration files in ~/.config/browsers/"
     echo "Use 'chrome', 'firefox', 'brave' aliases to launch"
-}
 }
 
 main "$@"

@@ -206,6 +206,64 @@ safe_python_install() {
     return 1
 }
 
+# Stow configuration helper
+stow_configs() {
+    local tool_path="$1"
+    local tool_name="$(basename "$tool_path")"
+    local category_dir="$(dirname "$tool_path")"
+    
+    # Check if stow is available
+    if ! command -v stow &> /dev/null; then
+        log_warning "GNU Stow not available - skipping config linking for $tool_name"
+        return 1
+    fi
+    
+    # Check if there are stowable configs
+    local has_configs=false
+    if [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]] || \
+       [[ -f "$tool_path/.tmux.conf" ]] || [[ -d "$tool_path/.config" ]] || \
+       [[ -f "$tool_path/.gitconfig" ]]; then
+        has_configs=true
+    fi
+    
+    if [[ "$has_configs" == "false" ]]; then
+        return 0  # Nothing to stow
+    fi
+    
+    log_info "Stowing $tool_name configs..."
+    
+    # Use -R (restow) to remove any existing links and create new ones
+    # Use -v for verbose output
+    # Use -t for target directory (home)
+    if (cd "$category_dir" && stow -v -t "$HOME" -R "$tool_name" 2>&1 | grep -q "WARNING.*existing"); then
+        log_warning "Config conflicts detected for $tool_name"
+        log_info "Backing up existing configs..."
+        
+        # Find conflicting files and back them up
+        local conflicts=$(cd "$category_dir" && stow -n -v -t "$HOME" -R "$tool_name" 2>&1 | grep "WARNING.*existing" | sed 's/.*existing target is neither//' | sed 's/:.*//')
+        for conflict in $conflicts; do
+            if [[ -e "$HOME/$conflict" ]] && [[ ! -L "$HOME/$conflict" ]]; then
+                local backup="$HOME/$conflict.backup.$(date +%Y%m%d_%H%M%S)"
+                mv "$HOME/$conflict" "$backup"
+                log_info "Backed up: $conflict -> $(basename "$backup")"
+            fi
+        done
+        
+        # Try again after backing up
+        if (cd "$category_dir" && stow -t "$HOME" -R "$tool_name"); then
+            log_success "$tool_name configs linked via stow"
+        else
+            log_error "Failed to stow $tool_name configs"
+            return 1
+        fi
+    elif (cd "$category_dir" && stow -t "$HOME" -R "$tool_name" 2>/dev/null); then
+        log_success "$tool_name configs linked via stow"
+    else
+        log_warning "Could not stow $tool_name configs"
+        return 1
+    fi
+}
+
 # Export functions so they're available in subshells
-export -f log_info log_success log_warning log_error detect_os is_ci safe_sudo safe_apt_update safe_python_install fix_mint_repos
+export -f log_info log_success log_warning log_error detect_os is_ci safe_sudo safe_apt_update safe_python_install fix_mint_repos stow_configs
 export APT_UPDATED

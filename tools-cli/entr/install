@@ -82,7 +82,7 @@ install_fswatch() {
                 log_warning "Homebrew not found, skipping fswatch"
             fi
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y fswatch
             ;;

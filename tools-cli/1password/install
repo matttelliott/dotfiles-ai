@@ -241,7 +241,7 @@ main() {
             install_1password_cli_macos
             setup_ssh_agent_macos
             ;;
-        debian)
+        debian|mint)
             install_1password_cli_debian
             setup_ssh_agent_linux
             ;;

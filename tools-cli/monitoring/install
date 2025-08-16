@@ -20,7 +20,7 @@ install_btop() {
         macos)
             brew install btop
             ;;
-        debian)
+        debian|mint)
             # btop might not be in default repos for older versions
             if ! safe_sudo apt install -y btop 2>/dev/null; then
                 # Try snap as fallback
@@ -96,7 +96,7 @@ install_ncdu() {
         macos)
             brew install ncdu
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y ncdu
             ;;
@@ -117,7 +117,7 @@ install_duf() {
         macos)
             brew install duf
             ;;
-        debian)
+        debian|mint)
             # Get latest version
             DUF_VERSION=$(curl -s https://api.github.com/repos/muesli/duf/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
             ARCH=$(dpkg --print-architecture)
@@ -145,7 +145,7 @@ install_iotop() {
             # macOS doesn't have iotop, but has similar tools
             log_info "iotop not available on macOS, use 'sudo fs_usage' instead"
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y iotop
             ;;
@@ -168,7 +168,7 @@ install_nethogs() {
         macos)
             brew install nethogs
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y nethogs
             ;;
@@ -189,7 +189,7 @@ install_bmon() {
         macos)
             brew install bmon
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y bmon
             ;;
@@ -210,7 +210,7 @@ install_procs() {
         macos)
             brew install procs
             ;;
-        debian)
+        debian|mint)
             # Install via cargo if available
             if command -v cargo &> /dev/null; then
                 cargo install procs
@@ -242,7 +242,7 @@ install_bottom() {
         macos)
             brew install bottom
             ;;
-        debian)
+        debian|mint)
             # Install via cargo if available
             if command -v cargo &> /dev/null; then
                 cargo install bottom

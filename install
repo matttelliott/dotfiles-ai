@@ -72,30 +72,10 @@ install_tool() {
         log_warning "No installer found for $tool_name"
     fi
     
-    # Use stow for any config files (if stow is available)
+    # Use stow for config files
     # Skip 1password as it manages its own configs directly
-    if command -v stow &> /dev/null && [[ "$tool_name" != "1password" ]]; then
-        if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
-            log_info "Stowing $tool_name configs..."
-            # Need to cd to the category directory for stow to work
-            local category_dir="$(dirname "$tool_path")"
-            local tool_basename="$(basename "$tool_path")"
-            
-            # Use -R (restow) to remove any existing links and create new ones
-            # This ensures we always use configs from the dotfiles repo
-            if (cd "$category_dir" && stow -t "$TARGET_DIR" -R "$tool_basename" 2>&1 | grep -q "WARNING.*conflicts"); then
-                log_warning "Config conflicts detected for $tool_name - backup existing configs first"
-                log_info "Run: mv ~/.config/$tool_name ~/.config/$tool_name.backup"
-            elif (cd "$category_dir" && stow -t "$TARGET_DIR" -R "$tool_basename" 2>/dev/null); then
-                log_success "$tool_name configs linked"
-            else
-                log_warning "Could not stow $tool_name configs"
-            fi
-        fi
-    else
-        if [[ -d "$tool_path/.config" ]] || [[ -f "$tool_path/.zshrc" ]] || [[ -f "$tool_path/.bashrc" ]]; then
-            log_warning "Stow not available - skipping config linking for $tool_name"
-        fi
+    if [[ "$tool_name" != "1password" ]]; then
+        stow_configs "$tool_path"
     fi
 }
 
@@ -145,6 +125,7 @@ Targets:
     cli             Install CLI tools only
     gui             Install GUI applications only
     lang            Install programming languages only
+    ai              Install AI/MCP tools only
     <tool>          Install specific tool (e.g., neovim, docker)
 
 Options:
@@ -190,6 +171,7 @@ main() {
         install_category "tools-cli"
         install_category "tools-lang"
         install_category "tools-gui"
+        install_category "tools-ai"
         
     elif [[ "$1" == "cli" ]]; then
         # CLI tools only
@@ -204,12 +186,16 @@ main() {
         # Programming languages only
         install_category "tools-lang"
         
+    elif [[ "$1" == "ai" ]]; then
+        # AI tools only
+        install_category "tools-ai"
+        
     else
         # Install specific tools
         for tool in "$@"; do
             # Look for the tool in all categories
             local found=false
-            for category in tools-cli tools-gui tools-lang; do
+            for category in tools-cli tools-gui tools-lang tools-ai; do
                 if [[ -d "$DOTFILES_DIR/$category/$tool" ]]; then
                     install_tool "$DOTFILES_DIR/$category/$tool"
                     found=true

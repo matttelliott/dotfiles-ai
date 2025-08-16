@@ -11,22 +11,6 @@ detect_os
 
 
 
-# Detect OS
-OS="$(uname)"
-if [[ "$OS" == "Darwin" ]]; then
-    PLATFORM="macos"
-elif [[ "$OS" == "Linux" ]]; then
-    if [[ -f /etc/debian_version ]]; then
-        PLATFORM="debian"
-    else
-        PLATFORM="linux"
-    fi
-else
-    log_warning "Unknown platform: $OS"
-    exit 1
-fi
-
-install_vscode() {
     log_info "Installing Visual Studio Code..."
     
     if command -v code &> /dev/null || [[ -d "/Applications/Visual Studio Code.app" ]]; then
@@ -34,7 +18,7 @@ install_vscode() {
         return 0
     fi
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install --cask visual-studio-code
@@ -42,7 +26,7 @@ install_vscode() {
                 log_warning "Please install VS Code manually from https://code.visualstudio.com/"
             fi
             ;;
-        debian)
+        debian|mint)
             # Add Microsoft repository
             wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
             sudo install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
@@ -164,7 +148,7 @@ setup_vscode_settings() {
     log_info "Setting up VS Code configuration..."
     
     # Determine VS Code config directory
-    if [[ "$PLATFORM" == "macos" ]]; then
+    if [[ "$OS" == "macos" ]]; then
         VSCODE_CONFIG="$HOME/Library/Application Support/Code/User"
     else
         VSCODE_CONFIG="$HOME/.config/Code/User"
@@ -573,7 +557,7 @@ main() {
     echo "  code-restore     - Restore extensions"
     echo
     echo "Configuration location:"
-    if [[ "$PLATFORM" == "macos" ]]; then
+    if [[ "$OS" == "macos" ]]; then
         echo "  ~/Library/Application Support/Code/User/"
     else
         echo "  ~/.config/Code/User/"

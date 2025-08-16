@@ -47,7 +47,7 @@ Once configured, you can ask Claude to:
 
 ## Architecture
 
-The MCP server (`ai-tools/mcp-servers/tmux/server.js`) provides a JSON-RPC interface that Claude uses to interact with tmux. It translates Claude's requests into tmux commands and returns structured responses.
+The MCP server (`tools-ai/mcp-tmux/server.js`) provides a JSON-RPC interface that Claude uses to interact with tmux. It translates Claude's requests into tmux commands and returns structured responses.
 
 ## Troubleshooting
 

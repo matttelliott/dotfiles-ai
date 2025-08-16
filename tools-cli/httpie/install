@@ -54,7 +54,7 @@ install_httpie() {
                 pip3 install --user httpie
             fi
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y httpie
             ;;

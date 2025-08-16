@@ -12,31 +12,15 @@ detect_os
 
 
 
-# Detect OS
-OS="$(uname)"
-if [[ "$OS" == "Darwin" ]]; then
-    PLATFORM="macos"
-elif [[ "$OS" == "Linux" ]]; then
-    if [[ -f /etc/debian_version ]]; then
-        PLATFORM="debian"
-    else
-        PLATFORM="linux"
-    fi
-else
-    log_warning "Unknown platform: $OS"
-    exit 1
-fi
-
-install_python_dependencies() {
     log_info "Installing Python build dependencies..."
     
-    case "$PLATFORM" in
+    case "$OS" in
         macos)
             if command -v brew &> /dev/null; then
                 brew install openssl readline sqlite3 xz zlib tcl-tk
             fi
             ;;
-        debian)
+        debian|mint)
             safe_sudo apt update
             safe_sudo apt install -y \
                 build-essential \
@@ -221,8 +205,8 @@ install_python_tools() {
     if command -v uv &> /dev/null; then
         log_info "Installing Python tools with uv..."
         
-        # Create a global tools environment
-        uv venv ~/.python-tools
+        # Create a global tools environment (clear if exists)
+        uv venv --clear ~/.python-tools
         source ~/.python-tools/bin/activate
         
         # Install tools

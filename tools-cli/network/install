@@ -51,7 +51,7 @@ install_netcat() {
             # macOS comes with netcat
             log_info "netcat comes pre-installed on macOS"
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y netcat-openbsd
             ;;
@@ -76,7 +76,7 @@ install_mtr() {
                 safe_sudo ln -sf /usr/local/sbin/mtr /usr/local/bin/mtr 2>/dev/null || true
             fi
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y mtr
             ;;
@@ -98,7 +98,7 @@ install_tcpdump() {
             # macOS comes with tcpdump
             log_info "tcpdump comes pre-installed on macOS"
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y tcpdump
             ;;
@@ -119,7 +119,7 @@ install_iperf() {
         macos)
             brew install iperf3
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y iperf3
             ;;
@@ -140,7 +140,7 @@ install_dig() {
         macos)
             brew install bind
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y dnsutils
             ;;
@@ -162,7 +162,7 @@ install_traceroute() {
             # macOS comes with traceroute
             log_info "traceroute comes pre-installed on macOS"
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y traceroute
             ;;
@@ -183,7 +183,7 @@ install_whois() {
         macos)
             brew install whois
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y whois
             ;;
@@ -204,7 +204,7 @@ install_socat() {
         macos)
             brew install socat
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y socat
             ;;
@@ -225,7 +225,7 @@ install_telnet() {
         macos)
             brew install telnet
             ;;
-        debian)
+        debian|mint)
             safe_apt_update
             safe_sudo apt install -y telnet
             ;;
@@ -248,7 +248,7 @@ install_speedtest() {
             brew tap teamookla/speedtest
             brew install speedtest --force
             ;;
-        debian)
+        debian|mint)
             # Official speedtest
             curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
             safe_sudo apt install -y speedtest
@@ -278,7 +278,7 @@ install_rustscan() {
             macos)
                 brew install rustscan
                 ;;
-            debian)
+        debian|mint)
                 # Download from GitHub releases
                 RUSTSCAN_VERSION=$(curl -s https://api.github.com/repos/RustScan/RustScan/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
                 wget "https://github.com/RustScan/RustScan/releases/download/${RUSTSCAN_VERSION}/rustscan_${RUSTSCAN_VERSION#v}_amd64.deb"

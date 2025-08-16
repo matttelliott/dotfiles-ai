@@ -1,0 +1,14 @@
+# Stow ignore file for tools-cli
+# Ignore installation scripts and documentation
+
+install
+setup.sh
+README.md
+*.sh
+LICENSE
+test/
+__pycache__/
+*.pyc
+node_modules/
+package.json
+package-lock.json

@@ -46,7 +46,7 @@ install_neovim() {
                 rm nvim-macos.tar.gz
             fi
             ;;
-        debian)
+        debian|mint)
             # Check for jq (needed for GitHub API)
             if ! command -v jq &> /dev/null; then
                 log_info "Installing jq (needed for installation)..."
@@ -128,7 +128,7 @@ install_dependencies() {
             macos)
                 brew install ripgrep
                 ;;
-            debian)
+        debian|mint)
                 safe_apt_update && safe_sudo apt install -y ripgrep
                 ;;
             *)
@@ -144,7 +144,7 @@ install_dependencies() {
             macos)
                 brew install fd
                 ;;
-            debian)
+        debian|mint)
                 safe_apt_update && safe_sudo apt install -y fd-find
                 # Create symlink for fd
                 mkdir -p "$HOME/.local/bin"

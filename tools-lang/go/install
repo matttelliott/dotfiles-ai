@@ -18,10 +18,10 @@ detect_platform() {
     
     case "$OS" in
         Darwin)
-            PLATFORM="darwin"
+            OS="darwin"
             ;;
         Linux)
-            PLATFORM="linux"
+            OS="linux"
             ;;
         *)
             log_warning "Unsupported OS: $OS"

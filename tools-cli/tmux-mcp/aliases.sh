@@ -6,8 +6,8 @@ alias tmux-panes="tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_
 
 # MCP server management
 tmux-mcp-test() {
-    if [[ -f "$DOTFILES_DIR/tools-ai/mcp-tmux/test-server.js" ]]; then
-        node "$DOTFILES_DIR/tools-ai/mcp-tmux/test-server.js"
+    if [[ -f "$DOTFILES_DIR/ai-tools/mcp-servers/tmux/test-server.js" ]]; then
+        node "$DOTFILES_DIR/ai-tools/mcp-servers/tmux/test-server.js"
     else
         echo "MCP test script not found"
     fi
