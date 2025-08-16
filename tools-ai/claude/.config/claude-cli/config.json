@@ -1,4 +1,5 @@
 {
+  "defaultModel": "claude-3-5-sonnet-20241022",
   "mcpServers": {
   "tmux": {
     "command": "node",
@@ -23,5 +24,10 @@
       "PLAYWRIGHT_BROWSERS_PATH": "/home/matt/.cache/ms-playwright"
     }
   }
-}
+},
+  "features": {
+    "autoSave": true,
+    "confirmBeforeRun": false,
+    "syntaxHighlighting": true
+  }
 }

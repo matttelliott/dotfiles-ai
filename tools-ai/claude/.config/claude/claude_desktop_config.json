@@ -23,5 +23,8 @@
       "PLAYWRIGHT_BROWSERS_PATH": "/home/matt/.cache/ms-playwright"
     }
   }
-}
+},
+  "theme": "auto",
+  "telemetry": false,
+  "autoUpdate": true
 }

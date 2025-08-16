@@ -1,5 +1,4 @@
 {
-  "mcpServers": {
   "tmux": {
     "command": "node",
     "args": ["/home/matt/dotfiles-ai/tools-ai/mcp-tmux/server.js"],
@@ -23,5 +22,4 @@
       "PLAYWRIGHT_BROWSERS_PATH": "/home/matt/.cache/ms-playwright"
     }
   }
-}
 }

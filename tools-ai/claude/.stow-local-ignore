@@ -1,0 +1,12 @@
+# Stow ignore file for Claude tools
+# These files should not be symlinked
+
+install
+README\.md
+test-mcp\.sh
+diagnose\.sh
+mcp-servers\.json
+.*\.backup
+.*\.bak
+\.git
+\.gitignore
