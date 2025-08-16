@@ -23,12 +23,11 @@ show_menu() {
     echo "AI Tools Installation Menu"
     echo "=========================="
     echo "1) Install everything (recommended)"
-    echo "2) Install Claude Desktop configuration only"
-    echo "3) Install Claude CLI only"
-    echo "4) Install MCP servers only"
-    echo "5) Install specific MCP server"
-    echo "6) Diagnose installation"
-    echo "7) Exit"
+    echo "2) Install Claude (CLI & Desktop)"
+    echo "3) Install MCP servers only"
+    echo "4) Install specific MCP server"
+    echo "5) Diagnose installation"
+    echo "6) Exit"
     echo ""
 }
 
@@ -79,26 +78,14 @@ install_all_mcp_servers() {
     fi
 }
 
-# Install Claude Desktop configuration
-install_claude_desktop() {
-    log_info "Installing Claude Desktop configuration..."
+# Install Claude tools (CLI and Desktop)
+install_claude() {
+    log_info "Installing Claude CLI and Desktop configuration..."
     
-    if [[ -x "$TOOLS_AI_DIR/claude-desktop/install" ]]; then
-        "$TOOLS_AI_DIR/claude-desktop/install"
+    if [[ -x "$TOOLS_AI_DIR/claude/install" ]]; then
+        "$TOOLS_AI_DIR/claude/install"
     else
-        log_error "Claude Desktop installer not found"
-        return 1
-    fi
-}
-
-# Install Claude CLI
-install_claude_cli() {
-    log_info "Installing Claude CLI..."
-    
-    if [[ -x "$TOOLS_AI_DIR/claude-cli/install" ]]; then
-        "$TOOLS_AI_DIR/claude-cli/install"
-    else
-        log_error "Claude CLI installer not found"
+        log_error "Claude installer not found"
         return 1
     fi
 }
@@ -109,8 +96,7 @@ install_everything() {
     
     check_node
     install_all_mcp_servers
-    install_claude_desktop
-    install_claude_cli
+    install_claude
     
     log_success "AI tools suite installation complete!"
 }
@@ -236,12 +222,12 @@ diagnose_installation() {
         fi
     done
     
-    if [[ -x "$TOOLS_AI_DIR/claude-desktop/diagnose.sh" ]]; then
-        echo "✓ claude-desktop/diagnose.sh"
+    if [[ -x "$TOOLS_AI_DIR/claude/diagnose.sh" ]]; then
+        echo "✓ claude/diagnose.sh"
     fi
     
-    if [[ -x "$TOOLS_AI_DIR/claude-cli/test-mcp.sh" ]]; then
-        echo "✓ claude-cli/test-mcp.sh"
+    if [[ -x "$TOOLS_AI_DIR/claude/test-mcp.sh" ]]; then
+        echo "✓ claude/test-mcp.sh"
     fi
 }
 
@@ -282,24 +268,20 @@ while true; do
             ;;
         2)
             check_node
-            install_claude_desktop
+            install_claude
             ;;
         3)
             check_node
-            install_claude_cli
+            install_all_mcp_servers
             ;;
         4)
             check_node
-            install_all_mcp_servers
-            ;;
-        5)
-            check_node
             install_specific_mcp
             ;;
-        6)
+        5)
             diagnose_installation
             ;;
-        7)
+        6)
             log_info "Exiting..."
             exit 0
             ;;
