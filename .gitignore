@@ -26,3 +26,40 @@ Thumbs.db
 # Backup files
 *.backup
 *.bak
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Security - never commit these
+*.pem
+*.key
+*.crt
+*.p12
+.env.*
+secrets/
+credentials/
+
+# OS/Tool specific
+.zshrc
+packages.microsoft.gpg

@@ -5,13 +5,11 @@
 
 set -e
 
-# Source logging utilities
-source "$(dirname "$0")/../../system/logging.sh" 2>/dev/null || {
-    log_info() { echo "[INFO] $*"; }
-    log_success() { echo "[SUCCESS] $*"; }
-    log_warning() { echo "[WARNING] $*"; }
-    log_error() { echo "[ERROR] $*" >&2; }
-}
+# Source common utilities (includes OS detection and logging)
+source "$(dirname "$0")/../../utils/common.sh"
+
+# Detect OS
+detect_os
 
 install_1password_macos() {
     log_info "Installing 1Password on macOS..."
@@ -30,46 +28,55 @@ install_1password_macos() {
 install_1password_linux() {
     log_info "Installing 1Password on Linux..."
     
-    # Detect distribution
-    if [[ -f /etc/os-release ]]; then
-        . /etc/os-release
-        case "$ID" in
-            ubuntu|debian|raspbian)
-                install_1password_debian
-                ;;
-            fedora|rhel|centos)
-                install_1password_fedora
-                ;;
-            arch|manjaro)
-                install_1password_arch
-                ;;
-            *)
-                log_warning "Distribution $ID not directly supported"
-                install_1password_generic
-                ;;
-        esac
-    else
-        install_1password_generic
-    fi
+    # Use the OS detection from common.sh
+    case "$OS" in
+        debian|mint)
+            install_1password_debian
+            ;;
+        fedora)
+            install_1password_fedora
+            ;;
+        arch)
+            install_1password_arch
+            ;;
+        *)
+            log_warning "Distribution not directly supported"
+            install_1password_generic
+            ;;
+    esac
 }
 
 install_1password_debian() {
     log_info "Installing 1Password for Debian/Ubuntu..."
     
-    # Add 1Password repository
-    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
-        sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+    # Add 1Password repository (only if not already present)
+    if [[ ! -f /usr/share/keyrings/1password-archive-keyring.gpg ]]; then
+        curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+            sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+    else
+        log_info "1Password GPG key already present"
+    fi
     
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
-        sudo tee /etc/apt/sources.list.d/1password.list
+    # Add repository source (only if not already present)
+    if [[ ! -f /etc/apt/sources.list.d/1password.list ]]; then
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+            sudo tee /etc/apt/sources.list.d/1password.list
+    else
+        log_info "1Password repository already configured"
+    fi
     
-    # Add debsig-verify policy
-    sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
-    curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
-        sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
-    sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
-    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
-        sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+    # Add debsig-verify policy (only if not already present)
+    if [[ ! -f /etc/debsig/policies/AC2D62742012EA22/1password.pol ]]; then
+        sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
+        curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
+            sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
+    fi
+    
+    if [[ ! -f /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg ]]; then
+        sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
+        curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+            sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+    fi
     
     # Install
     sudo apt update
@@ -282,15 +289,15 @@ main() {
     fi
     
     # Install based on OS
-    case "$(uname)" in
-        Darwin)
+    case "$OS" in
+        macos)
             install_1password_macos
             ;;
-        Linux)
+        debian|mint|fedora|arch|linux)
             install_1password_linux
             ;;
         *)
-            log_error "Unsupported operating system: $(uname)"
+            log_error "Unsupported operating system: $OS"
             exit 1
             ;;
     esac
