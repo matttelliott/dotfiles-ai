@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.17.3",
+    "neovim": "5.3.0",
     "zod": "3.25.76",
     "zod-to-json-schema": "3.24.6"
   }

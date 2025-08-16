@@ -41,6 +41,47 @@ const CreateSessionSchema = z.object({
   detached: z.boolean().optional().default(true).describe("Create session in detached mode")
 });
 
+const SplitPaneSchema = z.object({
+  session: z.string().describe("Session name or ID"),
+  window: z.string().describe("Window name or index"),
+  pane: z.string().optional().describe("Source pane index (defaults to current)"),
+  direction: z.enum(["horizontal", "vertical"]).default("horizontal").describe("Split direction"),
+  command: z.string().optional().describe("Command to run in new pane"),
+  percentage: z.number().optional().describe("Size percentage for new pane")
+});
+
+const KillPaneSchema = z.object({
+  session: z.string().describe("Session name or ID"),
+  window: z.string().describe("Window name or index"),
+  pane: z.string().describe("Pane index to kill")
+});
+
+const ResizePaneSchema = z.object({
+  session: z.string().describe("Session name or ID"),
+  window: z.string().describe("Window name or index"),
+  pane: z.string().describe("Pane index"),
+  direction: z.enum(["up", "down", "left", "right"]).describe("Resize direction"),
+  amount: z.number().default(5).describe("Number of cells to resize")
+});
+
+const RenameWindowSchema = z.object({
+  session: z.string().describe("Session name or ID"),
+  window: z.string().describe("Window name or index"),
+  new_name: z.string().describe("New window name")
+});
+
+const SelectPaneSchema = z.object({
+  session: z.string().describe("Session name or ID"),
+  window: z.string().describe("Window name or index"),
+  pane: z.string().describe("Pane index to select")
+});
+
+const GetPaneInfoSchema = z.object({
+  session: z.string().describe("Session name or ID"),
+  window: z.string().describe("Window name or index"),
+  pane: z.string().describe("Pane index")
+});
+
 // Create MCP server
 const server = new Server(
   {
@@ -93,6 +134,36 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         name: "tmux_create_session",
         description: "Create a new tmux session",
         inputSchema: zodToJsonSchema(CreateSessionSchema),
+      },
+      {
+        name: "tmux_split_pane",
+        description: "Split a tmux pane horizontally or vertically",
+        inputSchema: zodToJsonSchema(SplitPaneSchema),
+      },
+      {
+        name: "tmux_kill_pane",
+        description: "Kill a specific tmux pane",
+        inputSchema: zodToJsonSchema(KillPaneSchema),
+      },
+      {
+        name: "tmux_resize_pane",
+        description: "Resize a tmux pane",
+        inputSchema: zodToJsonSchema(ResizePaneSchema),
+      },
+      {
+        name: "tmux_rename_window",
+        description: "Rename a tmux window",
+        inputSchema: zodToJsonSchema(RenameWindowSchema),
+      },
+      {
+        name: "tmux_select_pane",
+        description: "Select/focus a specific tmux pane",
+        inputSchema: zodToJsonSchema(SelectPaneSchema),
+      },
+      {
+        name: "tmux_get_pane_info",
+        description: "Get detailed information about a specific pane",
+        inputSchema: zodToJsonSchema(GetPaneInfoSchema),
       },
     ],
   };
@@ -203,6 +274,129 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: "text",
               text: `Created tmux session: ${validated.name}`,
+            },
+          ],
+        };
+      }
+
+      case "tmux_split_pane": {
+        const validated = SplitPaneSchema.parse(args);
+        const target = validated.pane 
+          ? `${validated.session}:${validated.window}.${validated.pane}`
+          : `${validated.session}:${validated.window}`;
+        
+        let cmd = `split-window -t "${target}"`;
+        
+        if (validated.direction === "horizontal") {
+          cmd += ' -h';
+        } else {
+          cmd += ' -v';
+        }
+        
+        if (validated.percentage) {
+          cmd += ` -p ${validated.percentage}`;
+        }
+        
+        if (validated.command) {
+          cmd += ` "${validated.command}"`;
+        }
+        
+        await execTmux(cmd);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Split pane ${validated.direction}ly in ${validated.session}:${validated.window}`,
+            },
+          ],
+        };
+      }
+
+      case "tmux_kill_pane": {
+        const validated = KillPaneSchema.parse(args);
+        const target = `${validated.session}:${validated.window}.${validated.pane}`;
+        
+        await execTmux(`kill-pane -t "${target}"`);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Killed pane ${target}`,
+            },
+          ],
+        };
+      }
+
+      case "tmux_resize_pane": {
+        const validated = ResizePaneSchema.parse(args);
+        const target = `${validated.session}:${validated.window}.${validated.pane}`;
+        
+        const directionFlags = {
+          up: '-U',
+          down: '-D',
+          left: '-L',
+          right: '-R'
+        };
+        
+        await execTmux(`resize-pane -t "${target}" ${directionFlags[validated.direction]} ${validated.amount}`);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Resized pane ${target} ${validated.direction} by ${validated.amount} cells`,
+            },
+          ],
+        };
+      }
+
+      case "tmux_rename_window": {
+        const validated = RenameWindowSchema.parse(args);
+        const target = `${validated.session}:${validated.window}`;
+        
+        await execTmux(`rename-window -t "${target}" "${validated.new_name}"`);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Renamed window ${target} to "${validated.new_name}"`,
+            },
+          ],
+        };
+      }
+
+      case "tmux_select_pane": {
+        const validated = SelectPaneSchema.parse(args);
+        const target = `${validated.session}:${validated.window}.${validated.pane}`;
+        
+        await execTmux(`select-pane -t "${target}"`);
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Selected pane ${target}`,
+            },
+          ],
+        };
+      }
+
+      case "tmux_get_pane_info": {
+        const validated = GetPaneInfoSchema.parse(args);
+        const target = `${validated.session}:${validated.window}.${validated.pane}`;
+        
+        const info = await execTmux(
+          `display-message -t "${target}" -p "Pane: #{pane_index}\nTitle: #{pane_title}\nCurrent path: #{pane_current_path}\nCurrent command: #{pane_current_command}\nSize: #{pane_width}x#{pane_height}\nActive: #{pane_active}"`
+        );
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: info,
             },
           ],
         };
