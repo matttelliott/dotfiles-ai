@@ -1,0 +1,240 @@
+#!/usr/bin/env bash
+
+# Docker Desktop - Container management with GUI
+# Includes Docker Engine, Docker CLI, Docker Compose, and Kubernetes
+
+set -e
+
+# Source logging utilities
+source "$(dirname "$0")/../../system/logging.sh" 2>/dev/null || {
+    log_info() { echo "[INFO] $*"; }
+    log_success() { echo "[SUCCESS] $*"; }
+    log_warning() { echo "[WARNING] $*"; }
+    log_error() { echo "[ERROR] $*" >&2; }
+}
+
+install_docker_desktop_macos() {
+    log_info "Installing Docker Desktop on macOS..."
+    
+    if command -v brew &> /dev/null; then
+        brew install --cask docker
+        log_success "Docker Desktop installed via Homebrew"
+    else
+        log_error "Homebrew not found. Install from: https://brew.sh"
+        exit 1
+    fi
+}
+
+install_docker_desktop_linux() {
+    log_info "Installing Docker Desktop on Linux..."
+    
+    # Docker Desktop for Linux requires specific setup
+    case "$(lsb_release -si 2>/dev/null || echo "Unknown")" in
+        Ubuntu|Debian|Raspbian)
+            install_docker_desktop_debian
+            ;;
+        Fedora|RedHat|CentOS)
+            install_docker_desktop_fedora
+            ;;
+        *)
+            log_warning "Docker Desktop may not be available for your Linux distribution"
+            log_info "Installing Docker Engine instead..."
+            install_docker_engine_linux
+            ;;
+    esac
+}
+
+install_docker_desktop_debian() {
+    log_info "Installing Docker Desktop for Debian/Ubuntu..."
+    
+    # Prerequisites
+    sudo apt-get update
+    sudo apt-get install -y \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release
+    
+    # Add Docker's official GPG key
+    sudo mkdir -p /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    
+    # Set up repository
+    echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    
+    # Install Docker Desktop
+    sudo apt-get update
+    
+    # Download Docker Desktop DEB package
+    DOCKER_DESKTOP_VERSION="4.26.1"  # Update this as needed
+    ARCH=$(dpkg --print-architecture)
+    DEB_URL="https://desktop.docker.com/linux/main/${ARCH}/docker-desktop-${DOCKER_DESKTOP_VERSION}-${ARCH}.deb"
+    
+    log_info "Downloading Docker Desktop..."
+    wget -O /tmp/docker-desktop.deb "$DEB_URL"
+    
+    log_info "Installing Docker Desktop..."
+    sudo apt-get install -y /tmp/docker-desktop.deb
+    rm /tmp/docker-desktop.deb
+    
+    log_success "Docker Desktop installed"
+}
+
+install_docker_desktop_fedora() {
+    log_info "Installing Docker Desktop for Fedora..."
+    
+    # Prerequisites
+    sudo dnf -y install dnf-plugins-core
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    
+    # Download Docker Desktop RPM
+    DOCKER_DESKTOP_VERSION="4.26.1"  # Update this as needed
+    ARCH=$(uname -m)
+    RPM_URL="https://desktop.docker.com/linux/main/${ARCH}/docker-desktop-${DOCKER_DESKTOP_VERSION}-${ARCH}.rpm"
+    
+    log_info "Downloading Docker Desktop..."
+    wget -O /tmp/docker-desktop.rpm "$RPM_URL"
+    
+    log_info "Installing Docker Desktop..."
+    sudo dnf install -y /tmp/docker-desktop.rpm
+    rm /tmp/docker-desktop.rpm
+    
+    log_success "Docker Desktop installed"
+}
+
+install_docker_engine_linux() {
+    log_info "Installing Docker Engine (CLI only)..."
+    
+    # Use the CLI installer
+    if [[ -f "$(dirname "$0")/../../tools-cli/docker/install" ]]; then
+        "$(dirname "$0")/../../tools-cli/docker/install"
+    else
+        # Fallback to standard Docker Engine installation
+        curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+        sh /tmp/get-docker.sh
+        rm /tmp/get-docker.sh
+    fi
+    
+    # Add user to docker group
+    sudo usermod -aG docker "$USER"
+    
+    log_success "Docker Engine installed"
+    log_warning "Docker Desktop GUI not available for your distribution"
+    log_info "Use Docker CLI and consider Portainer for web-based management"
+}
+
+post_install_setup() {
+    log_info "Post-installation setup..."
+    
+    # Add user to docker group if not already
+    if ! groups | grep -q docker; then
+        sudo usermod -aG docker "$USER"
+        log_info "Added $USER to docker group"
+        log_warning "You need to log out and back in for group changes to take effect"
+    fi
+    
+    # Enable Docker service
+    if command -v systemctl &> /dev/null; then
+        sudo systemctl enable docker 2>/dev/null || true
+        sudo systemctl start docker 2>/dev/null || true
+    fi
+}
+
+verify_installation() {
+    log_info "Verifying Docker installation..."
+    
+    if command -v docker &> /dev/null; then
+        local version=$(docker --version)
+        log_success "Docker CLI installed: $version"
+    else
+        log_warning "Docker CLI not found in PATH"
+    fi
+    
+    # Check if Docker daemon is running
+    if docker info &> /dev/null; then
+        log_success "Docker daemon is running"
+    else
+        log_warning "Docker daemon not running. Start Docker Desktop first"
+    fi
+    
+    # Check Docker Compose
+    if command -v docker-compose &> /dev/null; then
+        local compose_version=$(docker-compose --version)
+        log_success "Docker Compose installed: $compose_version"
+    elif docker compose version &> /dev/null; then
+        local compose_version=$(docker compose version)
+        log_success "Docker Compose (plugin) installed: $compose_version"
+    else
+        log_warning "Docker Compose not found"
+    fi
+}
+
+show_post_install() {
+    echo ""
+    log_info "Docker Desktop Post-Installation:"
+    echo ""
+    echo "1. Start Docker Desktop:"
+    echo "   • macOS: Launch from Applications"
+    echo "   • Linux: Launch from applications menu or 'systemctl --user start docker-desktop'"
+    echo ""
+    echo "2. Sign in to Docker Hub (optional):"
+    echo "   • Provides access to Docker Hub images"
+    echo "   • Increases rate limits for pulls"
+    echo ""
+    echo "3. Configure resources:"
+    echo "   • Settings → Resources → Advanced"
+    echo "   • Adjust CPU, Memory, Disk limits"
+    echo ""
+    echo "4. Enable Kubernetes (optional):"
+    echo "   • Settings → Kubernetes"
+    echo "   • Enable Kubernetes checkbox"
+    echo ""
+    echo "5. Test installation:"
+    echo "   docker run hello-world"
+    echo ""
+    echo "6. Useful Docker commands:"
+    echo "   • docker ps                  # List running containers"
+    echo "   • docker images              # List images"
+    echo "   • docker-compose up          # Start compose stack"
+    echo "   • docker system prune -a     # Clean up everything"
+    echo ""
+    if ! groups | grep -q docker; then
+        log_warning "Log out and back in to use Docker without sudo"
+    fi
+}
+
+main() {
+    log_info "Setting up Docker Desktop..."
+    
+    # Check if already installed
+    if command -v docker &> /dev/null; then
+        log_success "Docker is already installed"
+        verify_installation
+        show_post_install
+        return 0
+    fi
+    
+    # Install based on OS
+    case "$(uname)" in
+        Darwin)
+            install_docker_desktop_macos
+            ;;
+        Linux)
+            install_docker_desktop_linux
+            ;;
+        *)
+            log_error "Unsupported operating system: $(uname)"
+            exit 1
+            ;;
+    esac
+    
+    post_install_setup
+    verify_installation
+    show_post_install
+    
+    log_success "Docker Desktop setup complete!"
+}
+
+main "$@"

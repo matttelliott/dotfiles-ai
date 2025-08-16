@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+
+# SSH Configuration Setup with 1Password Integration
+# Sets up SSH configuration with 1Password SSH agent support
+
+set -e
+
+# Source logging utilities
+source "$(dirname "$0")/../../system/logging.sh" 2>/dev/null || {
+    # Fallback logging functions if logging.sh doesn't exist
+    log_info() { echo "[INFO] $*"; }
+    log_success() { echo "[SUCCESS] $*"; }
+    log_warning() { echo "[WARNING] $*"; }
+    log_error() { echo "[ERROR] $*" >&2; }
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SSH_DIR="$HOME/.ssh"
+SSH_CONFIG="$SSH_DIR/config"
+SSH_CONFIG_BACKUP="$SSH_DIR/config.backup"
+
+setup_ssh_directory() {
+    log_info "Setting up SSH directory..."
+    
+    # Create SSH directory with proper permissions
+    mkdir -p "$SSH_DIR"
+    chmod 700 "$SSH_DIR"
+    
+    log_success "SSH directory configured"
+}
+
+backup_existing_config() {
+    if [[ -f "$SSH_CONFIG" ]]; then
+        log_info "Backing up existing SSH config..."
+        cp "$SSH_CONFIG" "$SSH_CONFIG_BACKUP.$(date +%Y%m%d_%H%M%S)"
+        log_success "SSH config backed up"
+    fi
+}
+
+install_ssh_config() {
+    log_info "Installing SSH configuration..."
+    
+    # Check if we should append or replace
+    if [[ -f "$SSH_CONFIG" ]]; then
+        # Check if 1Password agent is already configured
+        if grep -q "IdentityAgent.*1password" "$SSH_CONFIG" 2>/dev/null; then
+            log_warning "1Password SSH agent already configured in $SSH_CONFIG"
+            log_info "To update configuration, remove existing 1Password entries first"
+            return 0
+        fi
+        
+        # Append our config with a separator
+        echo "" >> "$SSH_CONFIG"
+        echo "# === 1Password SSH Agent Configuration ===" >> "$SSH_CONFIG"
+        echo "# Added by dotfiles-ai on $(date)" >> "$SSH_CONFIG"
+        cat "$SCRIPT_DIR/config" >> "$SSH_CONFIG"
+    else
+        # Copy our config as the new SSH config
+        cp "$SCRIPT_DIR/config" "$SSH_CONFIG"
+    fi
+    
+    # Set proper permissions
+    chmod 600 "$SSH_CONFIG"
+    
+    log_success "SSH configuration installed"
+}
+
+check_1password_cli() {
+    log_info "Checking 1Password CLI installation..."
+    
+    if command -v op &> /dev/null; then
+        local version=$(op --version)
+        log_success "1Password CLI installed (version: $version)"
+    else
+        log_warning "1Password CLI not found"
+        log_info "Install 1Password CLI from: https://developer.1password.com/docs/cli/get-started/"
+        log_info "Or run: ./tools-cli/1password-cli/setup.sh"
+    fi
+}
+
+check_1password_app() {
+    log_info "Checking 1Password app..."
+    
+    case "$(uname)" in
+        Darwin)
+            if [[ -d "/Applications/1Password.app" ]] || [[ -d "/Applications/1Password 7.app" ]] || [[ -d "/Applications/1Password 8.app" ]]; then
+                log_success "1Password app found"
+            else
+                log_warning "1Password app not found"
+                log_info "Install from: https://1password.com/downloads/"
+            fi
+            ;;
+        Linux)
+            if command -v 1password &> /dev/null; then
+                log_success "1Password app found"
+            else
+                log_warning "1Password app not found"
+                log_info "Install from: https://1password.com/downloads/linux/"
+            fi
+            ;;
+    esac
+}
+
+setup_1password_agent() {
+    log_info "Setting up 1Password SSH agent..."
+    
+    # Check if agent socket exists
+    if [[ -S "$HOME/.1password/agent.sock" ]]; then
+        log_success "1Password SSH agent socket found"
+    else
+        log_warning "1Password SSH agent socket not found"
+        log_info "Enable SSH agent in 1Password app:"
+        log_info "  1. Open 1Password app"
+        log_info "  2. Go to Settings > Developer"
+        log_info "  3. Enable 'Use the SSH agent'"
+        log_info "  4. Enable 'Integrate with 1Password CLI'"
+    fi
+}
+
+test_ssh_agent() {
+    log_info "Testing SSH agent connection..."
+    
+    if SSH_AUTH_SOCK="$HOME/.1password/agent.sock" ssh-add -l &> /dev/null; then
+        log_success "1Password SSH agent is working"
+        SSH_AUTH_SOCK="$HOME/.1password/agent.sock" ssh-add -l
+    else
+        log_warning "Could not connect to 1Password SSH agent"
+        log_info "Make sure 1Password is running and SSH agent is enabled"
+    fi
+}
+
+provide_usage_instructions() {
+    echo ""
+    log_info "=== SSH with 1Password Setup Complete ==="
+    echo ""
+    echo "To use 1Password for SSH keys:"
+    echo ""
+    echo "1. Create or import SSH keys in 1Password:"
+    echo "   - Open 1Password app"
+    echo "   - Click '+' to create new item"
+    echo "   - Choose 'SSH Key'"
+    echo "   - Generate new key or import existing"
+    echo ""
+    echo "2. Configure SSH agent in 1Password:"
+    echo "   - Settings > Developer > Use the SSH agent"
+    echo "   - Settings > Developer > Integrate with 1Password CLI"
+    echo ""
+    echo "3. Authorize keys for specific hosts:"
+    echo "   - When you first connect, 1Password will prompt"
+    echo "   - Authorize the key for the connection"
+    echo ""
+    echo "4. Test your setup:"
+    echo "   ssh -T git@github.com"
+    echo ""
+    echo "5. View available keys:"
+    echo "   SSH_AUTH_SOCK=~/.1password/agent.sock ssh-add -l"
+    echo ""
+    echo "For more info: https://developer.1password.com/docs/ssh/"
+}
+
+main() {
+    log_info "Setting up SSH configuration with 1Password integration..."
+    
+    setup_ssh_directory
+    backup_existing_config
+    install_ssh_config
+    check_1password_cli
+    check_1password_app
+    setup_1password_agent
+    test_ssh_agent
+    provide_usage_instructions
+    
+    log_success "SSH setup complete!"
+}
+
+main "$@"

@@ -1,0 +1,203 @@
+#!/usr/bin/env bash
+
+# DB Browser for SQLite - GUI for SQLite databases
+# Visual tool for creating, designing, and editing SQLite database files
+
+set -e
+
+# Source logging utilities
+source "$(dirname "$0")/../../system/logging.sh" 2>/dev/null || {
+    log_info() { echo "[INFO] $*"; }
+    log_success() { echo "[SUCCESS] $*"; }
+    log_warning() { echo "[WARNING] $*"; }
+    log_error() { echo "[ERROR] $*" >&2; }
+}
+
+install_sqlitebrowser_macos() {
+    log_info "Installing DB Browser for SQLite on macOS..."
+    
+    if command -v brew &> /dev/null; then
+        brew install --cask db-browser-for-sqlite
+        log_success "DB Browser for SQLite installed via Homebrew"
+    else
+        log_error "Homebrew not found. Install from: https://brew.sh"
+        exit 1
+    fi
+}
+
+install_sqlitebrowser_linux() {
+    log_info "Installing DB Browser for SQLite on Linux..."
+    
+    # Try different package managers
+    if command -v apt-get &> /dev/null; then
+        log_info "Installing via apt..."
+        sudo apt-get update
+        sudo apt-get install -y sqlitebrowser
+        log_success "DB Browser for SQLite installed via apt"
+        return 0
+    fi
+    
+    if command -v dnf &> /dev/null; then
+        log_info "Installing via dnf..."
+        sudo dnf install -y sqlitebrowser
+        log_success "DB Browser for SQLite installed via dnf"
+        return 0
+    fi
+    
+    if command -v yum &> /dev/null; then
+        log_info "Installing via yum..."
+        sudo yum install -y sqlitebrowser
+        log_success "DB Browser for SQLite installed via yum"
+        return 0
+    fi
+    
+    if command -v pacman &> /dev/null; then
+        log_info "Installing via pacman..."
+        sudo pacman -S --noconfirm sqlitebrowser
+        log_success "DB Browser for SQLite installed via pacman"
+        return 0
+    fi
+    
+    if command -v snap &> /dev/null; then
+        log_info "Installing via snap..."
+        sudo snap install sqlitebrowser
+        log_success "DB Browser for SQLite installed via snap"
+        return 0
+    fi
+    
+    if command -v flatpak &> /dev/null; then
+        log_info "Installing via flatpak..."
+        flatpak install -y flathub org.sqlitebrowser.sqlitebrowser
+        log_success "DB Browser for SQLite installed via flatpak"
+        return 0
+    fi
+    
+    # Fallback to AppImage
+    install_sqlitebrowser_appimage
+}
+
+install_sqlitebrowser_appimage() {
+    log_info "Installing DB Browser for SQLite via AppImage..."
+    
+    # Create applications directory
+    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$HOME/.local/share/applications"
+    
+    # Download AppImage
+    APPIMAGE_URL="https://github.com/sqlitebrowser/sqlitebrowser/releases/latest/download/DB_Browser_for_SQLite-x86_64.AppImage"
+    APPIMAGE_PATH="$HOME/.local/bin/sqlitebrowser.AppImage"
+    
+    log_info "Downloading AppImage..."
+    wget -O "$APPIMAGE_PATH" "$APPIMAGE_URL"
+    chmod +x "$APPIMAGE_PATH"
+    
+    # Create desktop entry
+    cat > "$HOME/.local/share/applications/sqlitebrowser.desktop" << EOF
+[Desktop Entry]
+Name=DB Browser for SQLite
+Comment=A high quality, visual, open source tool for SQLite databases
+Exec=$APPIMAGE_PATH %f
+Icon=sqlitebrowser
+Type=Application
+Categories=Development;Database;
+MimeType=application/x-sqlite3;
+EOF
+    
+    log_success "DB Browser for SQLite AppImage installed"
+    log_info "Launch from: $APPIMAGE_PATH"
+}
+
+verify_installation() {
+    log_info "Verifying DB Browser for SQLite installation..."
+    
+    # Check various possible commands
+    if command -v sqlitebrowser &> /dev/null; then
+        log_success "sqlitebrowser command available"
+        sqlitebrowser --version 2>/dev/null || true
+    elif command -v db-browser-for-sqlite &> /dev/null; then
+        log_success "db-browser-for-sqlite command available"
+    elif [[ -f "$HOME/.local/bin/sqlitebrowser.AppImage" ]]; then
+        log_success "DB Browser AppImage installed"
+    elif [[ -d "/Applications/DB Browser for SQLite.app" ]]; then
+        log_success "DB Browser for SQLite.app found on macOS"
+    elif snap list 2>/dev/null | grep -q sqlitebrowser; then
+        log_success "DB Browser installed via snap"
+    elif flatpak list 2>/dev/null | grep -q sqlitebrowser; then
+        log_success "DB Browser installed via flatpak"
+    else
+        log_warning "DB Browser for SQLite not found in PATH"
+        log_info "You may need to launch it from your applications menu"
+    fi
+}
+
+show_post_install() {
+    echo ""
+    log_info "DB Browser for SQLite Post-Installation:"
+    echo ""
+    echo "Launch DB Browser from your applications menu or command line"
+    echo ""
+    echo "Features:"
+    echo "  • Create and edit SQLite database files"
+    echo "  • Browse data in table view"
+    echo "  • Execute SQL queries"
+    echo "  • Import/Export CSV and SQL"
+    echo "  • Visual table designer"
+    echo "  • Plot simple graphs"
+    echo ""
+    echo "Quick Start:"
+    echo "  1. File → New Database (or Open Database)"
+    echo "  2. Create tables with visual designer"
+    echo "  3. Browse & Search tab to view data"
+    echo "  4. Execute SQL tab for queries"
+    echo ""
+    echo "Command Line Usage:"
+    echo "  sqlitebrowser mydatabase.db      # Open specific database"
+    echo "  sqlitebrowser                    # Launch application"
+    echo ""
+    echo "Integration with CLI tools:"
+    echo "  • Use with sqlite3 CLI: ./tools-cli/sqlite/install"
+    echo "  • Use with litecli: pip install litecli"
+    echo "  • Use with datasette: pip install datasette"
+    echo ""
+    echo "Common SQLite Files:"
+    echo "  • ~/.mozilla/firefox/*/places.sqlite  (Firefox history)"
+    echo "  • ~/.config/*/databases/*.db          (Various apps)"
+    echo "  • *.sqlite, *.sqlite3, *.db          (Common extensions)"
+}
+
+main() {
+    log_info "Setting up DB Browser for SQLite..."
+    
+    # Check if already installed
+    if command -v sqlitebrowser &> /dev/null || command -v db-browser-for-sqlite &> /dev/null || \
+       [[ -f "$HOME/.local/bin/sqlitebrowser.AppImage" ]] || \
+       [[ -d "/Applications/DB Browser for SQLite.app" ]] || \
+       snap list 2>/dev/null | grep -q sqlitebrowser || \
+       flatpak list 2>/dev/null | grep -q sqlitebrowser; then
+        log_success "DB Browser for SQLite is already installed"
+        verify_installation
+        show_post_install
+        return 0
+    fi
+    
+    # Install based on OS
+    case "$(uname)" in
+        Darwin)
+            install_sqlitebrowser_macos
+            ;;
+        Linux)
+            install_sqlitebrowser_linux
+            ;;
+        *)
+            log_error "Unsupported operating system: $(uname)"
+            exit 1
+            ;;
+    esac
+    
+    verify_installation
+    show_post_install
+    
+    log_success "DB Browser for SQLite setup complete!"
+}
+
+main "$@"

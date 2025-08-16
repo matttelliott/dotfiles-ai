@@ -1,0 +1,304 @@
+#!/usr/bin/env bash
+
+# 1Password Desktop Application
+# Password manager with browser extensions and SSH agent support
+
+set -e
+
+# Source logging utilities
+source "$(dirname "$0")/../../system/logging.sh" 2>/dev/null || {
+    log_info() { echo "[INFO] $*"; }
+    log_success() { echo "[SUCCESS] $*"; }
+    log_warning() { echo "[WARNING] $*"; }
+    log_error() { echo "[ERROR] $*" >&2; }
+}
+
+install_1password_macos() {
+    log_info "Installing 1Password on macOS..."
+    
+    if command -v brew &> /dev/null; then
+        brew install --cask 1password
+        # Also install CLI
+        brew install --cask 1password-cli
+        log_success "1Password and CLI installed via Homebrew"
+    else
+        log_error "Homebrew not found. Install from: https://brew.sh"
+        exit 1
+    fi
+}
+
+install_1password_linux() {
+    log_info "Installing 1Password on Linux..."
+    
+    # Detect distribution
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        case "$ID" in
+            ubuntu|debian|raspbian)
+                install_1password_debian
+                ;;
+            fedora|rhel|centos)
+                install_1password_fedora
+                ;;
+            arch|manjaro)
+                install_1password_arch
+                ;;
+            *)
+                log_warning "Distribution $ID not directly supported"
+                install_1password_generic
+                ;;
+        esac
+    else
+        install_1password_generic
+    fi
+}
+
+install_1password_debian() {
+    log_info "Installing 1Password for Debian/Ubuntu..."
+    
+    # Add 1Password repository
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+        sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+    
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+        sudo tee /etc/apt/sources.list.d/1password.list
+    
+    # Add debsig-verify policy
+    sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
+    curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
+        sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
+    sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+        sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+    
+    # Install
+    sudo apt update
+    sudo apt install -y 1password 1password-cli
+    
+    log_success "1Password installed via apt"
+}
+
+install_1password_fedora() {
+    log_info "Installing 1Password for Fedora/RHEL..."
+    
+    # Add 1Password repository
+    sudo rpm --import https://downloads.1password.com/linux/keys/1password.asc
+    sudo sh -c 'echo -e "[1password]\nname=1Password Stable Channel\nbaseurl=https://downloads.1password.com/linux/rpm/stable/\$basearch\nenabled=1\ngpgcheck=1\nrepo_gpgcheck=1\ngpgkey=\"https://downloads.1password.com/linux/keys/1password.asc\"" > /etc/yum.repos.d/1password.repo'
+    
+    # Install
+    sudo dnf install -y 1password 1password-cli
+    
+    log_success "1Password installed via dnf"
+}
+
+install_1password_arch() {
+    log_info "Installing 1Password for Arch Linux..."
+    
+    # Check for AUR helper
+    if command -v yay &> /dev/null; then
+        yay -S 1password 1password-cli
+    elif command -v paru &> /dev/null; then
+        paru -S 1password 1password-cli
+    else
+        log_warning "No AUR helper found"
+        log_info "Install from AUR manually:"
+        log_info "  https://aur.archlinux.org/packages/1password"
+        log_info "  https://aur.archlinux.org/packages/1password-cli"
+    fi
+}
+
+install_1password_generic() {
+    log_info "Installing 1Password via snap..."
+    
+    if command -v snap &> /dev/null; then
+        sudo snap install 1password
+        log_success "1Password installed via snap"
+        log_warning "CLI may need separate installation"
+        install_cli_generic
+    else
+        log_warning "No package manager found"
+        log_info "Download manually from: https://1password.com/downloads/linux/"
+    fi
+}
+
+install_cli_generic() {
+    log_info "Installing 1Password CLI..."
+    
+    # Detect architecture
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        x86_64)
+            ARCH="amd64"
+            ;;
+        aarch64|arm64)
+            ARCH="arm64"
+            ;;
+        armv7l)
+            ARCH="arm"
+            ;;
+        *)
+            log_error "Unsupported architecture: $ARCH"
+            return 1
+            ;;
+    esac
+    
+    # Download and install CLI
+    CLI_URL="https://cache.agilebits.com/dist/1P/op2/pkg/v2.24.0/op_linux_${ARCH}_v2.24.0.zip"
+    
+    log_info "Downloading 1Password CLI..."
+    wget -O /tmp/op.zip "$CLI_URL"
+    unzip -o /tmp/op.zip -d /tmp/
+    sudo mv /tmp/op /usr/local/bin/
+    sudo chmod +x /usr/local/bin/op
+    rm /tmp/op.zip
+    
+    log_success "1Password CLI installed"
+}
+
+setup_browser_extensions() {
+    log_info "Browser Extensions Setup:"
+    echo ""
+    echo "Install 1Password browser extensions:"
+    echo ""
+    echo "Firefox:"
+    echo "  https://addons.mozilla.org/firefox/addon/1password-x-password-manager/"
+    echo ""
+    echo "Chrome/Chromium:"
+    echo "  https://chrome.google.com/webstore/detail/1password/aeblfdkhhhdcdjpifhhbdiojplfjncoa"
+    echo ""
+    echo "Edge:"
+    echo "  https://microsoftedge.microsoft.com/addons/detail/1password/dppgmdbiimibapkepcbdbmkaabgiofem"
+    echo ""
+    echo "Safari:"
+    echo "  Install from Mac App Store (macOS only)"
+}
+
+setup_ssh_agent() {
+    log_info "SSH Agent Setup:"
+    echo ""
+    echo "To enable 1Password SSH agent:"
+    echo ""
+    echo "1. Open 1Password desktop app"
+    echo "2. Go to Settings → Developer"
+    echo "3. Enable 'Use the SSH agent'"
+    echo "4. Enable 'Integrate with 1Password CLI'"
+    echo "5. Enable 'Display key names when authorizing connections'"
+    echo ""
+    echo "Configure SSH to use 1Password agent:"
+    echo "  ./tools-cli/ssh/install"
+}
+
+setup_cli_integration() {
+    log_info "CLI Integration:"
+    echo ""
+    echo "Sign in to 1Password CLI:"
+    echo "  op signin"
+    echo ""
+    echo "Enable biometric unlock:"
+    echo "  Settings → Developer → Biometric unlock for 1Password CLI"
+    echo ""
+    echo "Useful CLI commands:"
+    echo "  op item list                    # List all items"
+    echo "  op item get <item>              # Get item details"
+    echo "  op read <secret-reference>      # Read secret value"
+    echo "  op inject -i env.template       # Inject secrets into templates"
+}
+
+verify_installation() {
+    log_info "Verifying 1Password installation..."
+    
+    # Check desktop app
+    case "$(uname)" in
+        Darwin)
+            if [[ -d "/Applications/1Password.app" ]] || [[ -d "/Applications/1Password 7.app" ]] || [[ -d "/Applications/1Password 8.app" ]]; then
+                log_success "1Password desktop app found"
+            else
+                log_warning "1Password desktop app not found"
+            fi
+            ;;
+        Linux)
+            if command -v 1password &> /dev/null; then
+                log_success "1Password desktop app found"
+            elif snap list 2>/dev/null | grep -q 1password; then
+                log_success "1Password installed via snap"
+            else
+                log_warning "1Password desktop app not found"
+            fi
+            ;;
+    esac
+    
+    # Check CLI
+    if command -v op &> /dev/null; then
+        local version=$(op --version)
+        log_success "1Password CLI installed: $version"
+    else
+        log_warning "1Password CLI not found"
+    fi
+    
+    # Check SSH agent socket
+    if [[ -S "$HOME/.1password/agent.sock" ]]; then
+        log_success "1Password SSH agent socket found"
+    else
+        log_info "SSH agent socket not found (start 1Password app first)"
+    fi
+}
+
+show_post_install() {
+    echo ""
+    log_info "1Password Post-Installation:"
+    echo ""
+    echo "1. Launch 1Password from applications menu"
+    echo ""
+    echo "2. Sign in or create account:"
+    echo "   • Use existing account"
+    echo "   • Create new family/individual account"
+    echo "   • Set up with company account"
+    echo ""
+    echo "3. Configure security:"
+    echo "   • Set master password"
+    echo "   • Enable biometric unlock"
+    echo "   • Set auto-lock preferences"
+    echo ""
+    echo "4. Import existing passwords:"
+    echo "   • File → Import"
+    echo "   • Support for Chrome, Firefox, Safari, LastPass, etc."
+    echo ""
+    setup_browser_extensions
+    setup_ssh_agent
+    setup_cli_integration
+}
+
+main() {
+    log_info "Setting up 1Password Desktop Application..."
+    
+    # Check if already installed
+    if command -v 1password &> /dev/null || [[ -d "/Applications/1Password.app" ]] || \
+       [[ -d "/Applications/1Password 7.app" ]] || [[ -d "/Applications/1Password 8.app" ]] || \
+       snap list 2>/dev/null | grep -q 1password; then
+        log_success "1Password is already installed"
+        verify_installation
+        show_post_install
+        return 0
+    fi
+    
+    # Install based on OS
+    case "$(uname)" in
+        Darwin)
+            install_1password_macos
+            ;;
+        Linux)
+            install_1password_linux
+            ;;
+        *)
+            log_error "Unsupported operating system: $(uname)"
+            exit 1
+            ;;
+    esac
+    
+    verify_installation
+    show_post_install
+    
+    log_success "1Password setup complete!"
+}
+
+main "$@"

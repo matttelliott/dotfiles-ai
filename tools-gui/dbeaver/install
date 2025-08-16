@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+
+# DBeaver - Universal Database Tool
+# Free multi-platform database tool for developers and administrators
+
+set -e
+
+# Source logging utilities
+source "$(dirname "$0")/../../system/logging.sh" 2>/dev/null || {
+    log_info() { echo "[INFO] $*"; }
+    log_success() { echo "[SUCCESS] $*"; }
+    log_warning() { echo "[WARNING] $*"; }
+    log_error() { echo "[ERROR] $*" >&2; }
+}
+
+install_dbeaver_macos() {
+    log_info "Installing DBeaver on macOS..."
+    
+    if command -v brew &> /dev/null; then
+        brew install --cask dbeaver-community
+        log_success "DBeaver installed via Homebrew"
+    else
+        log_error "Homebrew not found. Install from: https://brew.sh"
+        exit 1
+    fi
+}
+
+install_dbeaver_linux() {
+    log_info "Installing DBeaver on Linux..."
+    
+    # Check for snap first (works on most distros)
+    if command -v snap &> /dev/null; then
+        log_info "Installing via snap..."
+        sudo snap install dbeaver-ce
+        log_success "DBeaver installed via snap"
+        return 0
+    fi
+    
+    # Debian/Ubuntu via apt
+    if command -v apt-get &> /dev/null; then
+        log_info "Installing via apt..."
+        
+        # Add DBeaver repository
+        wget -O - https://dbeaver.io/debs/dbeaver.gpg.key | sudo apt-key add -
+        echo "deb https://dbeaver.io/debs/dbeaver-ce /" | sudo tee /etc/apt/sources.list.d/dbeaver.list
+        
+        sudo apt-get update
+        sudo apt-get install -y dbeaver-ce
+        log_success "DBeaver installed via apt"
+        return 0
+    fi
+    
+    # Fallback to flatpak
+    if command -v flatpak &> /dev/null; then
+        log_info "Installing via flatpak..."
+        flatpak install -y flathub io.dbeaver.DBeaverCommunity
+        log_success "DBeaver installed via flatpak"
+        return 0
+    fi
+    
+    log_warning "No suitable package manager found"
+    log_info "Download manually from: https://dbeaver.io/download/"
+}
+
+verify_installation() {
+    log_info "Verifying DBeaver installation..."
+    
+    # Check various possible commands
+    if command -v dbeaver &> /dev/null; then
+        log_success "DBeaver command available"
+    elif command -v dbeaver-ce &> /dev/null; then
+        log_success "DBeaver CE command available"
+    elif [[ -d "/Applications/DBeaver.app" ]]; then
+        log_success "DBeaver.app found on macOS"
+    elif snap list 2>/dev/null | grep -q dbeaver-ce; then
+        log_success "DBeaver installed via snap"
+    elif flatpak list 2>/dev/null | grep -q DBeaverCommunity; then
+        log_success "DBeaver installed via flatpak"
+    else
+        log_warning "DBeaver not found in PATH"
+        log_info "You may need to launch it from your applications menu"
+    fi
+}
+
+show_post_install() {
+    echo ""
+    log_info "DBeaver Post-Installation Setup:"
+    echo ""
+    echo "1. Launch DBeaver from your applications menu"
+    echo ""
+    echo "2. Create database connections:"
+    echo "   • PostgreSQL (port 5432)"
+    echo "   • MySQL/MariaDB (port 3306)"
+    echo "   • SQLite (local files)"
+    echo "   • MongoDB, Redis, Cassandra, etc."
+    echo ""
+    echo "3. Install additional JDBC drivers as needed:"
+    echo "   • Database Navigator → New Connection"
+    echo "   • Select database type"
+    echo "   • Download driver if prompted"
+    echo ""
+    echo "4. Configure SSH tunnels for remote databases:"
+    echo "   • Connection settings → SSH tab"
+    echo "   • Use 1Password SSH keys for authentication"
+    echo ""
+    echo "5. Useful features:"
+    echo "   • SQL Editor with autocomplete"
+    echo "   • ER Diagrams"
+    echo "   • Data export/import"
+    echo "   • Database comparison"
+    echo ""
+    log_info "Store database passwords in 1Password for security!"
+}
+
+main() {
+    log_info "Setting up DBeaver - Universal Database Tool..."
+    
+    # Check if already installed
+    if command -v dbeaver &> /dev/null || command -v dbeaver-ce &> /dev/null || \
+       [[ -d "/Applications/DBeaver.app" ]] || \
+       snap list 2>/dev/null | grep -q dbeaver-ce || \
+       flatpak list 2>/dev/null | grep -q DBeaverCommunity; then
+        log_success "DBeaver is already installed"
+        verify_installation
+        show_post_install
+        return 0
+    fi
+    
+    # Install based on OS
+    case "$(uname)" in
+        Darwin)
+            install_dbeaver_macos
+            ;;
+        Linux)
+            install_dbeaver_linux
+            ;;
+        *)
+            log_error "Unsupported operating system: $(uname)"
+            exit 1
+            ;;
+    esac
+    
+    verify_installation
+    show_post_install
+    
+    log_success "DBeaver setup complete!"
+}
+
+main "$@"

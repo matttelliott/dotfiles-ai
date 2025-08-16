@@ -2163,3 +2163,81 @@ alias irb="irb --simple-prompt"
 
 # Playwright MCP integration
 [[ -f "/home/matt/dotfiles-ai/tools-ai/mcp-playwright/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-ai/mcp-playwright/aliases.sh"
+
+# Browser aliases
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    alias chrome="open -a \"Google Chrome\""
+    alias chrome-canary="open -a \"Google Chrome Canary\""
+    alias firefox="open -a Firefox"
+    alias firefox-dev="open -a \"Firefox Developer Edition\""
+    alias brave="open -a \"Brave Browser\""
+    alias chromium="open -a Chromium"
+    alias opera="open -a Opera"
+    alias vivaldi="open -a Vivaldi"
+    
+    # Open URL in specific browser
+    chrome-open() { open -a "Google Chrome" "$1"; }
+    chrome-canary-open() { open -a "Google Chrome Canary" "$1"; }
+    firefox-open() { open -a Firefox "$1"; }
+    firefox-dev-open() { open -a "Firefox Developer Edition" "$1"; }
+    brave-open() { open -a "Brave Browser" "$1"; }
+    opera-open() { open -a Opera "$1"; }
+    vivaldi-open() { open -a Vivaldi "$1"; }
+else
+    alias chrome="google-chrome-stable"
+    alias chromium="chromium-browser"
+    alias firefox-dev="firefox-developer-edition"
+    alias opera="opera"
+    alias vivaldi="vivaldi-stable"
+    
+    # Open URL in specific browser
+    chrome-open() { google-chrome-stable "$1" &; }
+    firefox-open() { firefox "$1" &; }
+    firefox-dev-open() { firefox-developer-edition "$1" &; }
+    brave-open() { brave-browser "$1" &; }
+    opera-open() { opera "$1" &; }
+    vivaldi-open() { vivaldi-stable "$1" &; }
+fi
+
+# Browser development shortcuts
+alias chrome-dev="chrome --disable-web-security --user-data-dir=/tmp/chrome_dev"
+alias chrome-incognito="chrome --incognito"
+alias firefox-private="firefox --private-window"
+
+# Clear browser caches
+clear-chrome-cache() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        rm -rf ~/Library/Caches/Google/Chrome
+    else
+        rm -rf ~/.cache/google-chrome
+    fi
+    echo "Chrome cache cleared"
+}
+
+clear-firefox-cache() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        rm -rf ~/Library/Caches/Firefox
+    else
+        rm -rf ~/.cache/mozilla/firefox
+    fi
+    echo "Firefox cache cleared"
+}
+
+# Kill all browser processes
+kill-browsers() {
+    pkill -f chrome || true
+    pkill -f firefox || true
+    pkill -f brave || true
+    echo "All browser processes killed"
+}
+
+# Browser profiles
+chrome-profile() {
+    local profile="${1:-Default}"
+    chrome --profile-directory="$profile"
+}
+
+firefox-profile() {
+    firefox -P "$1"
+}
+

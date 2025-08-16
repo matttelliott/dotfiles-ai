@@ -1,0 +1,31 @@
+# SSH Configuration with 1Password Integration
+# This config enables 1Password SSH agent for all hosts
+
+# Use 1Password SSH agent for all connections
+Host *
+    IdentityAgent "~/.1password/agent.sock"
+    AddKeysToAgent yes
+    UseKeychain yes
+    IdentitiesOnly yes
+    
+# GitHub
+Host github.com
+    User git
+    IdentityAgent "~/.1password/agent.sock"
+    
+# GitLab
+Host gitlab.com
+    User git
+    IdentityAgent "~/.1password/agent.sock"
+    
+# Bitbucket
+Host bitbucket.org
+    User git
+    IdentityAgent "~/.1password/agent.sock"
+
+# Example: Custom host configuration
+# Host myserver
+#     HostName server.example.com
+#     User myuser
+#     Port 2222
+#     IdentityAgent "~/.1password/agent.sock"
