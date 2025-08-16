@@ -12,6 +12,7 @@ detect_os
 
 
 
+install_python_dependencies() {
     log_info "Installing Python build dependencies..."
     
     case "$OS" in

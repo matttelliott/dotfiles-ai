@@ -10,6 +10,15 @@ detect_os
 
 # AI Model Configurations setup script - Centralized LLM configuration management
 
+create_model_select_script() {
+    log_info "Creating ai-model-select helper script..."
+    
+    cat > "$HOME/.local/bin/ai-model-select" << 'EOF'
+#!/bin/bash
+# AI Model Selection Helper
+
+CONFIG_DIR="$HOME/.config/ai-models"
+
 show_usage() {
     echo "Usage: ai-model-select [provider] [model]"
     echo ""

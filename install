@@ -66,7 +66,7 @@ install_tool() {
     if [[ -x "$tool_path/install" ]]; then
         (cd "$tool_path" && ./install)
     elif [[ -x "$tool_path/setup.sh" ]]; then
-        # Fallback to old setup.sh
+        # Fallback to old setup.sh (shouldn't exist anymore)
         (cd "$tool_path" && ./setup.sh)
     else
         log_warning "No installer found for $tool_name"

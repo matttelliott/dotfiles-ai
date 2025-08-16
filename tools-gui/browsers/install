@@ -8,9 +8,7 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
-
-
-
+install_chrome() {
     log_info "Installing Google Chrome..."
     
     if command -v google-chrome &> /dev/null || command -v google-chrome-stable &> /dev/null || [[ -d "/Applications/Google Chrome.app" ]]; then

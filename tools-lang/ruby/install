@@ -8,10 +8,7 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
-
-
-
-
+install_ruby_dependencies() {
     log_info "Installing Ruby build dependencies..."
     
     case "$OS" in

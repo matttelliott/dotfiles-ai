@@ -11,6 +11,7 @@ detect_os
 
 
 
+install_vscode() {
     log_info "Installing Visual Studio Code..."
     
     if command -v code &> /dev/null || [[ -d "/Applications/Visual Studio Code.app" ]]; then
@@ -37,7 +38,6 @@ detect_os
     esac
     
     log_success "VS Code installed"
-}
 }
 
 install_vscode_extensions() {
@@ -141,7 +141,6 @@ install_vscode_extensions() {
     done
     
     log_success "VS Code extensions installed"
-}
 }
 
 setup_vscode_settings() {
@@ -454,7 +453,6 @@ EOF
     
     log_success "VS Code configuration created"
 }
-}
 
 setup_vscode_aliases() {
     log_info "Setting up VS Code aliases..."
@@ -519,7 +517,6 @@ code-restore() {
         fi
     done
 }
-}
 
 # Main installation
 main() {
@@ -562,7 +559,6 @@ main() {
     else
         echo "  ~/.config/Code/User/"
     fi
-}
 }
 
 main "$@"
