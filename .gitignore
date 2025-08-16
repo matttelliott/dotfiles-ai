@@ -59,6 +59,8 @@ build/
 .env.*
 secrets/
 credentials/
+.credentials.json
+*credentials.json
 
 # OS/Tool specific
 .zshrc

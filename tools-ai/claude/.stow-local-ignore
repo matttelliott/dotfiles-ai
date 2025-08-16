@@ -9,3 +9,5 @@ diagnose\.sh
 .*\.bak
 \.git
 \.gitignore
+\.credentials\.json
+.*credentials.*

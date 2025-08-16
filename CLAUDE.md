@@ -9,6 +9,8 @@ IMPORTANT: Always update this repo dotfiles-ai before making changes on the host
 
 When the user says "let's install X" or "add X", interpret this as **adding X to the dotfiles configuration**, not installing it on the current host. All changes should be made to the installation scripts and configuration files in this repository.
 
+IMPORTANT: DO NOT CREATE UNSOLICITED ALIASES
+
 ## Project Overview
 
 A comprehensive dotfiles configuration repository for developer tools across macOS and Debian-based Linux platforms. The repository uses a modular architecture where each tool is self-contained with its own setup script and documentation.
