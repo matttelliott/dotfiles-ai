@@ -6,7 +6,7 @@
       "Bash(mv:*)",
       "Bash(mkdir:*)",
       "Bash(chmod:*)",
-      "Bash(./install:*)",
+      "Bash(./install*)",
       "Bash(stow:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
