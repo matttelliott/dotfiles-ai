@@ -54,23 +54,30 @@ install_claude_cli() {
     fi
 }
 
-# Setup stow-compatible directory structure
-setup_stow_structure() {
-    log_info "Setting up stow-compatible structure..."
+# Setup configuration directories
+setup_config_dirs() {
+    log_info "Setting up configuration directories..."
     
-    # Create stow directory structure for configs
-    mkdir -p "$CLAUDE_CLI_DIR/.config/claude-cli"
-    mkdir -p "$CLAUDE_CLI_DIR/.mcp"
+    # Create actual config directories
+    mkdir -p "$HOME/.config/claude-cli"
     
-    log_success "Stow structure created"
+    log_success "Configuration directories created"
 }
 
 # Create Claude CLI configuration with MCP servers
 create_cli_config() {
     log_info "Creating Claude CLI configuration..."
     
-    # Create main CLI config directory in stow structure
-    cat > "$CLAUDE_CLI_DIR/.config/claude-cli/config.json" << EOF
+    local config_file="$HOME/.config/claude-cli/config.json"
+    
+    # Backup existing config if it exists
+    if [[ -f "$config_file" ]] && ! grep -q "dotfiles-ai/tools-ai" "$config_file" 2>/dev/null; then
+        log_info "Backing up existing configuration..."
+        cp "$config_file" "$config_file.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+    
+    # Create main CLI config
+    cat > "$config_file" << EOF
 {
   "defaultModel": "claude-3-5-sonnet-20241022",
   "mcpServers": {
@@ -112,8 +119,10 @@ EOF
 create_project_mcp_config() {
     log_info "Creating project MCP configuration..."
     
-    # Create .mcp.json in stow structure (for project root)
-    cat > "$CLAUDE_CLI_DIR/.mcp/.mcp.json" << EOF
+    # This creates a template that users can copy to their projects
+    local template_file="$CLAUDE_CLI_DIR/mcp-template.json"
+    
+    cat > "$template_file" << EOF
 {
   "mcpServers": {
     "tmux": {
@@ -142,7 +151,13 @@ create_project_mcp_config() {
 }
 EOF
     
-    log_success "Project MCP configuration created"
+    log_success "Project MCP template created at $template_file"
+    
+    # Also update the dotfiles repo's own .mcp.json
+    if [[ "$PWD" == "$DOTFILES_DIR" ]]; then
+        log_info "Updating dotfiles repository .mcp.json..."
+        cp "$template_file" "$DOTFILES_DIR/.mcp.json"
+    fi
 }
 
 # Install all MCP servers
@@ -163,21 +178,14 @@ install_mcp_servers() {
     log_success "MCP servers installed"
 }
 
-# Use GNU Stow to symlink configs
-stow_configs() {
-    log_info "Creating symlinks with GNU Stow..."
+# No stow needed - configs are written directly
+finalize_configs() {
+    log_info "Finalizing configuration..."
     
-    # Ensure stow is installed
-    if ! command -v stow >/dev/null 2>&1; then
-        log_error "GNU Stow not installed. Please run the main installer first."
-        exit 1
-    fi
+    # Set proper permissions
+    chmod 600 "$HOME/.config/claude-cli/config.json" 2>/dev/null || true
     
-    # Stow the claude-cli configs
-    cd "$DOTFILES_DIR/tools-ai"
-    stow -v -t "$HOME" claude-cli
-    
-    log_success "Configuration files symlinked"
+    log_success "Configuration finalized"
 }
 
 # Create convenience scripts
@@ -233,11 +241,11 @@ main() {
     
     check_dependencies
     install_claude_cli
-    setup_stow_structure
+    setup_config_dirs
     create_cli_config
     create_project_mcp_config
     install_mcp_servers
-    stow_configs
+    finalize_configs
     create_scripts
     
     log_success "Claude CLI installation complete!"
@@ -250,7 +258,8 @@ main() {
     echo ""
     log_info "Configuration locations:"
     echo "  CLI config: ~/.config/claude-cli/config.json"
-    echo "  Project MCP: ./.mcp.json (copy from ~/.mcp/.mcp.json)"
+    echo "  Project MCP template: $CLAUDE_CLI_DIR/mcp-template.json"
+    echo "  Project MCP (this repo): $DOTFILES_DIR/.mcp.json"
 }
 
 main "$@"

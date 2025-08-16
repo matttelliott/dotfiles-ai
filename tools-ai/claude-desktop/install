@@ -58,43 +58,33 @@ check_dependencies() {
     log_success "Dependencies satisfied"
 }
 
-# Setup stow-compatible directory structure
-setup_stow_structure() {
-    log_info "Setting up stow-compatible structure..."
-    
-    # Get the config directory for this OS
-    local config_dir_name
+# Get Claude Desktop config directory
+get_config_dir() {
     case "$OS" in
         macos)
-            # For macOS, we need to create Library structure
-            config_dir_name="Library/Application Support/Claude"
+            echo "$HOME/Library/Application Support/Claude"
             ;;
         *)
-            # For Linux, use .config
-            config_dir_name=".config/claude"
+            echo "$HOME/.config/claude"
             ;;
     esac
-    
-    # Create stow directory structure
-    mkdir -p "$CLAUDE_DESKTOP_DIR/$config_dir_name"
-    
-    log_success "Stow structure created"
 }
 
 # Create Claude Desktop configuration with all MCP servers
 create_desktop_config() {
     log_info "Creating Claude Desktop configuration..."
     
-    # Determine the stow path based on OS
-    local config_file
-    case "$OS" in
-        macos)
-            config_file="$CLAUDE_DESKTOP_DIR/Library/Application Support/Claude/claude_desktop_config.json"
-            ;;
-        *)
-            config_file="$CLAUDE_DESKTOP_DIR/.config/claude/claude_desktop_config.json"
-            ;;
-    esac
+    local config_dir=$(get_config_dir)
+    local config_file="$config_dir/claude_desktop_config.json"
+    
+    # Create config directory if it doesn't exist
+    mkdir -p "$config_dir"
+    
+    # Backup existing config if it exists and is not our managed version
+    if [[ -f "$config_file" ]] && ! grep -q "dotfiles-ai/tools-ai" "$config_file" 2>/dev/null; then
+        log_info "Backing up existing configuration..."
+        cp "$config_file" "$config_file.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
     
     # Create the configuration with all MCP servers
     cat > "$config_file" << EOF
@@ -156,30 +146,12 @@ install_mcp_servers() {
     log_success "MCP servers ready"
 }
 
-# Use GNU Stow to symlink configs
-stow_configs() {
-    log_info "Creating symlinks with GNU Stow..."
-    
-    # Ensure stow is installed
-    if ! command -v stow >/dev/null 2>&1; then
-        log_error "GNU Stow not installed. Please run the main installer first."
-        exit 1
-    fi
-    
-    # Backup existing config if it exists and is not a symlink
-    local config_dir=$(get_claude_desktop_config_dir)
+# Write configuration directly (no stow needed for single config file)
+write_config() {
+    local config_dir=$(get_config_dir)
     local config_file="$config_dir/claude_desktop_config.json"
     
-    if [[ -f "$config_file" && ! -L "$config_file" ]]; then
-        log_info "Backing up existing configuration..."
-        mv "$config_file" "$config_file.backup.$(date +%Y%m%d_%H%M%S)"
-    fi
-    
-    # Stow the claude-desktop configs
-    cd "$DOTFILES_DIR/tools-ai"
-    stow -v -t "$HOME" claude-desktop
-    
-    log_success "Configuration files symlinked"
+    log_success "Claude Desktop configuration written to $config_file"
 }
 
 # Create test and diagnostic scripts
@@ -303,13 +275,12 @@ main() {
     log_info "Starting Claude Desktop configuration..."
     
     check_dependencies
-    setup_stow_structure
     create_desktop_config
+    write_config
     install_mcp_servers
-    stow_configs
     create_scripts
     
-    local config_dir=$(get_claude_desktop_config_dir)
+    local config_dir=$(get_config_dir)
     
     log_success "Claude Desktop configuration complete!"
     echo ""
