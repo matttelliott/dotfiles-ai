@@ -2152,14 +2152,14 @@ alias rb="ruby"
 alias irb="irb --simple-prompt"
 
 
-# Tmux MCP server aliases
-source /home/matt/dotfiles-ai/ai-tools/mcp-servers/tmux/aliases.zsh
-
 # Tmux MCP integration
 [[ -f "/home/matt/dotfiles-ai/tools-cli/tmux-mcp/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-cli/tmux-mcp/aliases.sh"
 
 # Tmux MCP server aliases
-source /home/matt/dotfiles-ai/tools-ai/mcp-tmux/aliases.zsh
+[[ -f "/home/matt/dotfiles-ai/tools-ai/mcp-tmux/aliases.zsh" ]] && source "/home/matt/dotfiles-ai/tools-ai/mcp-tmux/aliases.zsh"
 
 # Neovim MCP integration
 [[ -f "/home/matt/dotfiles-ai/tools-ai/mcp-neovim/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-ai/mcp-neovim/aliases.sh"
+
+# Playwright MCP integration
+[[ -f "/home/matt/dotfiles-ai/tools-ai/mcp-playwright/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-ai/mcp-playwright/aliases.sh"
