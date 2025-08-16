@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Claude CLI and Desktop installation with MCP servers
+# Claude Code installation and configuration
+# Configures Claude Code according to official documentation
 # Part of dotfiles-ai repository
 
 set -e
@@ -15,21 +16,18 @@ detect_os
 DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CLAUDE_DIR="$SCRIPT_DIR"
 
-log_info "Installing Claude tools and MCP servers..."
+log_info "Configuring Claude Code with MCP servers..."
 
-# Check if running in a desktop environment
+# Check if running in a desktop environment for Claude Desktop
 has_desktop_environment() {
-    # Check for common desktop environment variables
     if [[ -n "$DISPLAY" ]] || [[ -n "$WAYLAND_DISPLAY" ]] || [[ -n "$XDG_CURRENT_DESKTOP" ]]; then
         return 0
     fi
     
-    # Check for macOS (always has desktop)
     if [[ "$OS" == "macos" ]]; then
         return 0
     fi
     
-    # Check for common desktop packages on Linux
     if command -v startx &>/dev/null || command -v gdm &>/dev/null || command -v lightdm &>/dev/null; then
         return 0
     fi
@@ -47,7 +45,6 @@ install_node() {
     log_info "Installing Node.js via nvm..."
     if [[ -x "$DOTFILES_DIR/tools-lang/node/install" ]]; then
         "$DOTFILES_DIR/tools-lang/node/install"
-        # Source nvm for current session
         export NVM_DIR="$HOME/.nvm"
         [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
     else
@@ -56,30 +53,10 @@ install_node() {
     fi
 }
 
-# Install Claude CLI
-install_claude_cli() {
-    log_info "Installing Claude CLI..."
-    
-    if command -v claude &>/dev/null; then
-        log_success "Claude CLI already installed: $(claude --version 2>/dev/null || echo 'installed')"
-        return 0
-    fi
-    
-    # Claude CLI can be installed via npm
-    if command -v npm &>/dev/null; then
-        npm install -g @anthropic-ai/claude-cli
-        log_success "Claude CLI installed"
-    else
-        log_error "npm not found. Please install Node.js first."
-        exit 1
-    fi
-}
-
 # Install MCP servers
 install_mcp_servers() {
     log_info "Installing MCP servers..."
     
-    # Install each MCP server
     for server_dir in "$DOTFILES_DIR/tools-ai/mcp-"*; do
         if [[ -d "$server_dir" ]]; then
             server_name=$(basename "$server_dir")
@@ -96,122 +73,77 @@ install_mcp_servers() {
     log_success "MCP servers installed"
 }
 
-# Setup GNU Stow structure for configs
+# Setup GNU Stow structure for Claude Code configs
 setup_stow_structure() {
-    log_info "Setting up stow structure..."
+    log_info "Setting up stow structure for Claude Code..."
     
-    # Create .config directory structure for Claude CLI
-    mkdir -p "$CLAUDE_DIR/.config/claude-cli"
+    # Ensure the .claude directory exists in the stow structure
+    mkdir -p "$CLAUDE_DIR/.claude"
     
-    # Create config directory for Claude Desktop (if desktop available)
-    if has_desktop_environment; then
-        mkdir -p "$CLAUDE_DIR/.config/claude"
+    # Copy the settings template if it doesn't exist
+    if [[ ! -f "$CLAUDE_DIR/.claude/settings.json" ]]; then
+        log_error "settings.json template not found in $CLAUDE_DIR/.claude/"
+        exit 1
     fi
     
-    log_success "Stow structure created"
+    log_success "Stow structure ready"
 }
 
-# Create shared MCP configuration
-create_mcp_config() {
-    log_info "Creating MCP server configuration..."
+# Update MCP server paths in settings.json
+update_mcp_paths() {
+    log_info "Updating MCP server paths in settings..."
     
-    # Create a shared MCP servers configuration
-    cat > "$CLAUDE_DIR/mcp-servers.json" << EOF
-{
-  "tmux": {
-    "command": "node",
-    "args": ["$DOTFILES_DIR/tools-ai/mcp-tmux/server.js"],
-    "env": {
-      "NODE_ENV": "production"
-    }
-  },
-  "neovim": {
-    "command": "node",
-    "args": ["$DOTFILES_DIR/tools-ai/mcp-neovim/server.js"],
-    "env": {
-      "NODE_ENV": "production",
-      "NVIM_LISTEN_ADDRESS": "/tmp/nvim.pipe"
-    }
-  },
-  "playwright": {
-    "command": "node",
-    "args": ["$DOTFILES_DIR/tools-ai/mcp-playwright/server.js"],
-    "env": {
-      "NODE_ENV": "production",
-      "PLAYWRIGHT_BROWSERS_PATH": "$HOME/.cache/ms-playwright"
-    }
-  }
-}
-EOF
+    local settings_file="$CLAUDE_DIR/.claude/settings.json"
     
-    log_success "MCP server configuration created"
+    # Use sed to update the paths to use the actual dotfiles directory
+    sed -i.bak "s|/home/matt/dotfiles-ai|$DOTFILES_DIR|g" "$settings_file"
+    rm -f "$settings_file.bak"
+    
+    log_success "MCP server paths updated"
 }
 
-# Create Claude CLI configuration
-create_cli_config() {
-    log_info "Creating Claude CLI configuration..."
-    
-    # Read the shared MCP config
-    MCP_SERVERS=$(cat "$CLAUDE_DIR/mcp-servers.json")
-    
-    cat > "$CLAUDE_DIR/.config/claude-cli/config.json" << EOF
-{
-  "defaultModel": "claude-3-5-sonnet-20241022",
-  "mcpServers": $MCP_SERVERS,
-  "features": {
-    "autoSave": true,
-    "confirmBeforeRun": false,
-    "syntaxHighlighting": true
-  }
-}
-EOF
-    
-    log_success "Claude CLI configuration created"
-}
-
-# Create Claude Desktop configuration
-create_desktop_config() {
+# Setup Claude Desktop config if desktop environment exists
+setup_claude_desktop() {
     if ! has_desktop_environment; then
         log_info "No desktop environment detected, skipping Claude Desktop config"
         return 0
     fi
     
-    log_info "Creating Claude Desktop configuration..."
+    log_info "Setting up Claude Desktop configuration..."
     
-    # Read the shared MCP config
-    MCP_SERVERS=$(cat "$CLAUDE_DIR/mcp-servers.json")
+    # Determine Claude Desktop config location based on OS
+    local desktop_config_dir
+    case "$OS" in
+        macos)
+            desktop_config_dir="$HOME/Library/Application Support/Claude"
+            ;;
+        *)
+            desktop_config_dir="$HOME/.config/claude"
+            ;;
+    esac
     
-    cat > "$CLAUDE_DIR/.config/claude/claude_desktop_config.json" << EOF
+    # Create directory if it doesn't exist
+    mkdir -p "$desktop_config_dir"
+    
+    # Extract just the mcpServers section from our settings.json
+    local mcp_config=$(jq '.mcpServers' "$CLAUDE_DIR/.claude/settings.json")
+    
+    # Create Claude Desktop config
+    cat > "$desktop_config_dir/claude_desktop_config.json" << EOF
 {
-  "mcpServers": $MCP_SERVERS,
+  "mcpServers": $mcp_config,
   "theme": "auto",
   "telemetry": false,
   "autoUpdate": true
 }
 EOF
     
-    log_success "Claude Desktop configuration created"
-}
-
-# Create project .mcp.json for this repository
-create_project_mcp() {
-    log_info "Creating project MCP configuration..."
-    
-    # Read the shared MCP config
-    MCP_SERVERS=$(cat "$CLAUDE_DIR/mcp-servers.json")
-    
-    cat > "$DOTFILES_DIR/.mcp.json" << EOF
-{
-  "mcpServers": $MCP_SERVERS
-}
-EOF
-    
-    log_success "Project MCP configuration created"
+    log_success "Claude Desktop configured at $desktop_config_dir/claude_desktop_config.json"
 }
 
 # Use GNU Stow to symlink configs
 stow_configs() {
-    log_info "Stowing Claude configurations..."
+    log_info "Stowing Claude Code configuration..."
     
     # Ensure GNU Stow is installed
     if ! command -v stow &>/dev/null; then
@@ -222,12 +154,15 @@ stow_configs() {
     # Navigate to tools-ai directory for stowing
     cd "$DOTFILES_DIR/tools-ai"
     
-    # Remove any existing symlinks or configs that might conflict
-    if [[ -L "$HOME/.config/claude-cli/config.json" ]]; then
-        rm "$HOME/.config/claude-cli/config.json"
+    # Remove any existing symlinks that might conflict
+    if [[ -L "$HOME/.claude/settings.json" ]]; then
+        rm "$HOME/.claude/settings.json"
     fi
-    if [[ -L "$HOME/.config/claude/claude_desktop_config.json" ]]; then
-        rm "$HOME/.config/claude/claude_desktop_config.json"
+    
+    # Backup existing settings if they exist and aren't symlinks
+    if [[ -f "$HOME/.claude/settings.json" && ! -L "$HOME/.claude/settings.json" ]]; then
+        log_info "Backing up existing settings.json..."
+        mv "$HOME/.claude/settings.json" "$HOME/.claude/settings.json.backup.$(date +%Y%m%d_%H%M%S)"
     fi
     
     # Stow the Claude configs
@@ -240,18 +175,20 @@ stow_configs() {
 create_scripts() {
     log_info "Creating convenience scripts..."
     
-    # Create test script for MCP servers
+    # Create MCP test script
     cat > "$CLAUDE_DIR/test-mcp.sh" << 'EOF'
 #!/bin/bash
 
-echo "Testing MCP Servers"
-echo "==================="
+echo "Testing MCP Servers for Claude Code"
+echo "===================================="
 echo ""
+
+DOTFILES_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # Test each MCP server
 for server in tmux neovim playwright; do
     echo "Testing mcp-$server..."
-    server_dir="$(dirname "$0")/../mcp-$server"
+    server_dir="$DOTFILES_DIR/tools-ai/mcp-$server"
     
     if [[ -f "$server_dir/test-server.js" ]]; then
         node "$server_dir/test-server.js" 2>&1 | head -10
@@ -263,9 +200,15 @@ for server in tmux neovim playwright; do
     echo ""
 done
 
-echo "Claude CLI MCP Status:"
-echo "----------------------"
-claude mcp list 2>/dev/null || echo "Claude CLI not available"
+echo "Claude Code Configuration:"
+echo "-------------------------"
+if [[ -f ~/.claude/settings.json ]]; then
+    echo "✓ User settings: ~/.claude/settings.json"
+    echo "  MCP servers configured:"
+    jq -r '.mcpServers | keys[]' ~/.claude/settings.json 2>/dev/null | sed 's/^/    - /'
+else
+    echo "✗ User settings not found"
+fi
 EOF
     chmod +x "$CLAUDE_DIR/test-mcp.sh"
     
@@ -273,8 +216,8 @@ EOF
     cat > "$CLAUDE_DIR/diagnose.sh" << 'EOF'
 #!/bin/bash
 
-echo "Claude Tools Diagnostic"
-echo "======================="
+echo "Claude Code Configuration Diagnostic"
+echo "===================================="
 echo ""
 
 # Check Node.js
@@ -285,28 +228,41 @@ else
     echo "  ✗ Not installed"
 fi
 
-# Check Claude CLI
+# Check Claude Code settings
 echo ""
-echo "Claude CLI:"
-if command -v claude &>/dev/null; then
-    echo "  ✓ Installed"
-    echo "  Config: ~/.config/claude-cli/config.json"
-    if [[ -f ~/.config/claude-cli/config.json ]]; then
-        echo "  ✓ Config exists"
-    else
-        echo "  ✗ Config missing"
+echo "Claude Code Settings:"
+if [[ -f ~/.claude/settings.json ]]; then
+    echo "  ✓ User settings exists"
+    if [[ -L ~/.claude/settings.json ]]; then
+        echo "    Symlinked to: $(readlink ~/.claude/settings.json)"
     fi
 else
-    echo "  ✗ Not installed"
+    echo "  ✗ User settings not found"
+fi
+
+# Check project settings
+if [[ -f .claude/settings.json ]]; then
+    echo "  ✓ Project settings exists"
+fi
+if [[ -f .claude/settings.local.json ]]; then
+    echo "  ✓ Project local settings exists"
+fi
+
+# Check CLAUDE.md
+if [[ -f CLAUDE.md ]]; then
+    echo "  ✓ CLAUDE.md exists ($(wc -l < CLAUDE.md) lines)"
 fi
 
 # Check Claude Desktop config
 echo ""
 echo "Claude Desktop:"
-if [[ -f ~/.config/claude/claude_desktop_config.json ]]; then
-    echo "  ✓ Config exists"
-elif [[ -f "$HOME/Library/Application Support/Claude/claude_desktop_config.json" ]]; then
+DESKTOP_CONFIG=""
+if [[ -f "$HOME/Library/Application Support/Claude/claude_desktop_config.json" ]]; then
+    DESKTOP_CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
     echo "  ✓ Config exists (macOS)"
+elif [[ -f "$HOME/.config/claude/claude_desktop_config.json" ]]; then
+    DESKTOP_CONFIG="$HOME/.config/claude/claude_desktop_config.json"
+    echo "  ✓ Config exists (Linux)"
 else
     echo "  ✗ Config not found"
 fi
@@ -314,8 +270,9 @@ fi
 # Check MCP servers
 echo ""
 echo "MCP Servers:"
+DOTFILES_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 for server in tmux neovim playwright; do
-    server_path="$(dirname "$0")/../mcp-$server/server.js"
+    server_path="$DOTFILES_DIR/tools-ai/mcp-$server/server.js"
     echo -n "  $server: "
     if [[ -f "$server_path" ]]; then
         echo -n "✓"
@@ -329,63 +286,128 @@ for server in tmux neovim playwright; do
     fi
 done
 
-# Check project MCP config
 echo ""
-echo "Project MCP config:"
-if [[ -f "$(dirname "$0")/../../.mcp.json" ]]; then
-    echo "  ✓ .mcp.json exists"
-else
-    echo "  ✗ .mcp.json missing"
-fi
+echo "Use 'claude config list' to see current settings"
+echo "Use 'claude config get <key>' to view specific settings"
 EOF
     chmod +x "$CLAUDE_DIR/diagnose.sh"
     
     log_success "Scripts created"
 }
 
+# Create README documentation
+create_documentation() {
+    log_info "Creating documentation..."
+    
+    cat > "$CLAUDE_DIR/README.md" << 'EOF'
+# Claude Code Configuration
+
+This directory manages Claude Code (claude.ai/code) configuration according to the official documentation.
+
+## Configuration Structure
+
+According to the official docs, Claude Code uses these configuration files:
+
+### User Settings
+- `~/.claude/settings.json` - Global user settings (managed by this installer)
+
+### Project Settings (not managed by dotfiles)
+- `.claude/settings.json` - Team-shared project settings
+- `.claude/settings.local.json` - Personal project settings
+- `CLAUDE.md` - Project context and instructions
+- `CLAUDE.local.md` - Personal project context
+
+## What This Installer Does
+
+1. **Installs MCP servers** - tmux, neovim, and playwright integration
+2. **Configures user settings** - Creates ~/.claude/settings.json with:
+   - MCP server configurations
+   - Useful permissions
+   - Environment variables
+   - Feature flags
+3. **Sets up Claude Desktop** - If desktop environment is detected
+4. **Uses GNU Stow** - For proper configuration management
+
+## Configuration Hierarchy
+
+Settings are applied in this order (highest to lowest precedence):
+1. Enterprise managed settings (if applicable)
+2. Project settings (`.claude/settings.json`)
+3. User settings (`~/.claude/settings.json`)
+4. Project local settings (`.claude/settings.local.json`)
+
+## Available Commands
+
+After installation:
+- `claude config list` - List all settings
+- `claude config get <key>` - View a specific setting
+- `claude config set <key> <value>` - Change a setting
+- `./test-mcp.sh` - Test MCP server connectivity
+- `./diagnose.sh` - Diagnose configuration
+
+## MCP Servers
+
+The following MCP servers are configured:
+- **tmux** - Terminal multiplexer control
+- **neovim** - Neovim editor integration
+- **playwright** - Browser automation
+
+## Customization
+
+To add project-specific settings, create these files in your project root:
+- `.claude/settings.json` - Shared settings
+- `.claude/settings.local.json` - Personal settings (gitignored)
+- `CLAUDE.md` - Project instructions
+
+## Environment Variables
+
+Key environment variables:
+- `ANTHROPIC_API_KEY` - API authentication
+- `CLAUDE_CODE_USE_BEDROCK` - Use Amazon Bedrock (default: false)
+- `CLAUDE_CODE_USE_VERTEX` - Use Google Vertex AI (default: false)
+EOF
+    
+    log_success "Documentation created"
+}
+
 # Main installation flow
 main() {
-    log_info "Starting Claude tools installation..."
+    log_info "Starting Claude Code configuration..."
     
     # Install dependencies
     install_node
     
-    # Install Claude CLI
-    install_claude_cli
-    
     # Install MCP servers
     install_mcp_servers
     
-    # Setup configurations
+    # Setup configuration
     setup_stow_structure
-    create_mcp_config
-    create_cli_config
-    create_desktop_config
-    create_project_mcp
+    update_mcp_paths
+    
+    # Setup Claude Desktop if applicable
+    setup_claude_desktop
     
     # Stow configurations
     stow_configs
     
-    # Create helper scripts
+    # Create helper scripts and docs
     create_scripts
+    create_documentation
     
-    log_success "Claude tools installation complete!"
-    echo ""
-    log_info "Installed components:"
-    echo "  ✓ Claude CLI"
-    [[ -f "$CLAUDE_DIR/.config/claude/claude_desktop_config.json" ]] && echo "  ✓ Claude Desktop config"
-    echo "  ✓ MCP servers (tmux, neovim, playwright)"
+    log_success "Claude Code configuration complete!"
     echo ""
     log_info "Configuration locations:"
-    echo "  CLI: ~/.config/claude-cli/config.json"
-    has_desktop_environment && echo "  Desktop: ~/.config/claude/claude_desktop_config.json"
-    echo "  Project: .mcp.json"
+    echo "  User settings: ~/.claude/settings.json"
+    has_desktop_environment && echo "  Desktop config: ~/.config/claude/claude_desktop_config.json (or ~/Library/... on macOS)"
     echo ""
     log_info "Next steps:"
-    echo "  1. Authenticate Claude CLI: claude auth login"
-    echo "  2. Test MCP servers: $CLAUDE_DIR/test-mcp.sh"
-    echo "  3. Check status: $CLAUDE_DIR/diagnose.sh"
-    has_desktop_environment && echo "  4. Restart Claude Desktop to load MCP servers"
+    echo "  1. Test MCP servers: $CLAUDE_DIR/test-mcp.sh"
+    echo "  2. Check configuration: $CLAUDE_DIR/diagnose.sh"
+    echo "  3. View settings: claude config list"
+    echo ""
+    log_info "To customize for a project, create:"
+    echo "  - CLAUDE.md in project root for instructions"
+    echo "  - .claude/settings.json for project settings"
 }
 
 # Run main installation
