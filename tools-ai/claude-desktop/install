@@ -23,12 +23,8 @@ get_claude_desktop_config_dir() {
         macos)
             echo "$HOME/Library/Application Support/Claude"
             ;;
-        debian|mint|linux)
-            echo "$HOME/.config/claude"
-            ;;
         *)
-            log_error "Unsupported OS for Claude Desktop: $OS"
-            exit 1
+            echo "$HOME/.config/claude"
             ;;
     esac
 }
@@ -58,16 +54,9 @@ check_dependencies() {
     log_success "Dependencies satisfied"
 }
 
-# Get Claude Desktop config directory
+# Get Claude Desktop config directory (alias for consistency)
 get_config_dir() {
-    case "$OS" in
-        macos)
-            echo "$HOME/Library/Application Support/Claude"
-            ;;
-        *)
-            echo "$HOME/.config/claude"
-            ;;
-    esac
+    get_claude_desktop_config_dir
 }
 
 # Create Claude Desktop configuration with all MCP servers
