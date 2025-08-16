@@ -232,35 +232,63 @@ stow_configs() {
     
     log_info "Stowing $tool_name configs..."
     
-    # Use -R (restow) to remove any existing links and create new ones
-    # Use -v for verbose output
-    # Use -t for target directory (home)
-    if (cd "$category_dir" && stow -v -t "$HOME" -R "$tool_name" 2>&1 | grep -q "WARNING.*existing"); then
-        log_warning "Config conflicts detected for $tool_name"
-        log_info "Backing up existing configs..."
+    # First try a dry run to check for conflicts
+    local dry_run_output=$(cd "$category_dir" && stow -n -v -t "$HOME" -R "$tool_name" 2>&1 || true)
+    
+    if echo "$dry_run_output" | grep -q "WARNING.*conflicts\|WARNING.*existing"; then
+        log_info "Config conflicts detected for $tool_name - resolving..."
         
-        # Find conflicting files and back them up
-        local conflicts=$(cd "$category_dir" && stow -n -v -t "$HOME" -R "$tool_name" 2>&1 | grep "WARNING.*existing" | sed 's/.*existing target is neither//' | sed 's/:.*//')
+        # Find conflicting files
+        local conflicts=$(echo "$dry_run_output" | grep "existing target" | sed 's/.*existing target is neither//' | sed 's/:.*//' | tr -d ' ')
+        
         for conflict in $conflicts; do
-            if [[ -e "$HOME/$conflict" ]] && [[ ! -L "$HOME/$conflict" ]]; then
-                local backup="$HOME/$conflict.backup.$(date +%Y%m%d_%H%M%S)"
-                mv "$HOME/$conflict" "$backup"
+            local full_path="$HOME/$conflict"
+            if [[ -L "$full_path" ]] && [[ ! -e "$full_path" ]]; then
+                # Broken symlink - remove it
+                log_info "Removing broken symlink: $conflict"
+                rm "$full_path"
+            elif [[ -e "$full_path" ]] && [[ ! -L "$full_path" ]]; then
+                # Regular file - back it up
+                local backup="$full_path.backup.$(date +%Y%m%d_%H%M%S)"
+                mv "$full_path" "$backup"
                 log_info "Backed up: $conflict -> $(basename "$backup")"
             fi
         done
-        
-        # Try again after backing up
-        if (cd "$category_dir" && stow -t "$HOME" -R "$tool_name"); then
-            log_success "$tool_name configs linked via stow"
-        else
-            log_error "Failed to stow $tool_name configs"
-            return 1
-        fi
-    elif (cd "$category_dir" && stow -t "$HOME" -R "$tool_name" 2>/dev/null); then
+    fi
+    
+    # Now try the actual stow operation
+    local stow_output=$(cd "$category_dir" && stow -t "$HOME" -R "$tool_name" 2>&1 || true)
+    local stow_exit_code=$?
+    
+    if [[ $stow_exit_code -eq 0 ]] && ! echo "$stow_output" | grep -q "WARNING\|ERROR\|BUG"; then
         log_success "$tool_name configs linked via stow"
     else
-        log_warning "Could not stow $tool_name configs"
-        return 1
+        # If stow fails, check if configs are already properly linked
+        local configs_linked=true
+        if [[ -f "$tool_path/.zshrc" ]] && [[ ! -L "$HOME/.zshrc" || "$(readlink "$HOME/.zshrc")" != *"$tool_name/.zshrc" ]]; then
+            configs_linked=false
+        fi
+        if [[ -f "$tool_path/.tmux.conf" ]] && [[ ! -L "$HOME/.tmux.conf" || "$(readlink "$HOME/.tmux.conf")" != *"$tool_name/.tmux.conf" ]]; then
+            configs_linked=false
+        fi
+        if [[ -d "$tool_path/.config" ]]; then
+            for config_file in "$tool_path/.config"/*; do
+                local config_name=$(basename "$config_file")
+                if [[ ! -L "$HOME/.config/$config_name" || "$(readlink "$HOME/.config/$config_name")" != *"$tool_name/.config/$config_name" ]]; then
+                    configs_linked=false
+                    break
+                fi
+            done
+        fi
+        
+        if [[ "$configs_linked" == "true" ]]; then
+            log_success "$tool_name configs already properly linked"
+        else
+            log_warning "Could not stow $tool_name configs"
+            if echo "$stow_output" | grep -q "BUG\|find_stowed_path"; then
+                log_info "Note: Stow metadata conflict detected - configs may already be managed"
+            fi
+        fi
     fi
 }
 
