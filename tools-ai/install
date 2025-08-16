@@ -1,0 +1,325 @@
+#!/usr/bin/env bash
+
+# Master AI Tools Installer
+# Installs and configures all AI-related tools including Claude Desktop, Claude CLI, and MCP servers
+
+set -e
+
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/common.sh"
+
+detect_os
+
+# Configuration
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+TOOLS_AI_DIR="$SCRIPT_DIR"
+
+log_info "Installing AI Tools Suite..."
+
+# Display menu
+show_menu() {
+    echo ""
+    echo "AI Tools Installation Menu"
+    echo "=========================="
+    echo "1) Install everything (recommended)"
+    echo "2) Install Claude Desktop configuration only"
+    echo "3) Install Claude CLI only"
+    echo "4) Install MCP servers only"
+    echo "5) Install specific MCP server"
+    echo "6) Diagnose installation"
+    echo "7) Exit"
+    echo ""
+}
+
+# Check if Node.js is installed
+check_node() {
+    if ! command -v node >/dev/null 2>&1; then
+        log_warning "Node.js not found. Installing..."
+        if [[ -x "$DOTFILES_DIR/tools-lang/node/install" ]]; then
+            "$DOTFILES_DIR/tools-lang/node/install"
+            # Source nvm for current session
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        else
+            log_error "Cannot install Node.js. Please install manually."
+            exit 1
+        fi
+    fi
+    log_success "Node.js is available: $(node --version 2>/dev/null || echo 'checking...')"
+}
+
+# Install all MCP servers
+install_all_mcp_servers() {
+    log_info "Installing all MCP servers..."
+    
+    local servers=("mcp-tmux" "mcp-neovim" "mcp-playwright")
+    local failed=()
+    
+    for server in "${servers[@]}"; do
+        if [[ -x "$TOOLS_AI_DIR/$server/install" ]]; then
+            log_info "Installing $server..."
+            if "$TOOLS_AI_DIR/$server/install"; then
+                log_success "$server installed successfully"
+            else
+                log_warning "$server installation failed"
+                failed+=("$server")
+            fi
+        else
+            log_warning "$server installer not found"
+            failed+=("$server")
+        fi
+    done
+    
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        log_warning "Some servers failed to install: ${failed[*]}"
+        return 1
+    else
+        log_success "All MCP servers installed successfully"
+    fi
+}
+
+# Install Claude Desktop configuration
+install_claude_desktop() {
+    log_info "Installing Claude Desktop configuration..."
+    
+    if [[ -x "$TOOLS_AI_DIR/claude-desktop/install" ]]; then
+        "$TOOLS_AI_DIR/claude-desktop/install"
+    else
+        log_error "Claude Desktop installer not found"
+        return 1
+    fi
+}
+
+# Install Claude CLI
+install_claude_cli() {
+    log_info "Installing Claude CLI..."
+    
+    if [[ -x "$TOOLS_AI_DIR/claude-cli/install" ]]; then
+        "$TOOLS_AI_DIR/claude-cli/install"
+    else
+        log_error "Claude CLI installer not found"
+        return 1
+    fi
+}
+
+# Install everything
+install_everything() {
+    log_info "Installing complete AI tools suite..."
+    
+    check_node
+    install_all_mcp_servers
+    install_claude_desktop
+    install_claude_cli
+    
+    log_success "AI tools suite installation complete!"
+}
+
+# Install specific MCP server
+install_specific_mcp() {
+    echo ""
+    echo "Select MCP server to install:"
+    echo "1) tmux"
+    echo "2) neovim"
+    echo "3) playwright"
+    echo ""
+    read -p "Choice: " mcp_choice
+    
+    case $mcp_choice in
+        1)
+            if [[ -x "$TOOLS_AI_DIR/mcp-tmux/install" ]]; then
+                "$TOOLS_AI_DIR/mcp-tmux/install"
+            fi
+            ;;
+        2)
+            if [[ -x "$TOOLS_AI_DIR/mcp-neovim/install" ]]; then
+                "$TOOLS_AI_DIR/mcp-neovim/install"
+            fi
+            ;;
+        3)
+            if [[ -x "$TOOLS_AI_DIR/mcp-playwright/install" ]]; then
+                "$TOOLS_AI_DIR/mcp-playwright/install"
+            fi
+            ;;
+        *)
+            log_error "Invalid choice"
+            ;;
+    esac
+}
+
+# Diagnose installation
+diagnose_installation() {
+    log_info "Running AI tools diagnostics..."
+    echo ""
+    
+    # Check Node.js
+    echo "Node.js Status:"
+    echo "---------------"
+    if command -v node >/dev/null 2>&1; then
+        echo "✓ Node.js: $(node --version)"
+        echo "✓ npm: $(npm --version)"
+    else
+        echo "✗ Node.js not found"
+    fi
+    echo ""
+    
+    # Check Claude CLI
+    echo "Claude CLI Status:"
+    echo "-----------------"
+    if command -v claude >/dev/null 2>&1; then
+        echo "✓ Claude CLI installed: $(claude --version 2>/dev/null || echo 'version unknown')"
+        
+        # Check MCP servers in CLI
+        echo ""
+        echo "MCP Servers in Claude CLI:"
+        claude mcp list 2>/dev/null || echo "Cannot list MCP servers"
+    else
+        echo "✗ Claude CLI not installed"
+    fi
+    echo ""
+    
+    # Check Claude Desktop config
+    echo "Claude Desktop Configuration:"
+    echo "----------------------------"
+    local config_file
+    if [[ "$OS" == "macos" ]]; then
+        config_file="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+    else
+        config_file="$HOME/.config/claude/claude_desktop_config.json"
+    fi
+    
+    if [[ -f "$config_file" ]]; then
+        echo "✓ Configuration file exists: $config_file"
+        echo "Configured MCP servers:"
+        grep -o '"[^"]*":' "$config_file" | grep -v mcpServers | sed 's/[":]//' | sed 's/^/  - /'
+    else
+        echo "✗ Configuration file not found"
+    fi
+    echo ""
+    
+    # Check MCP server installations
+    echo "MCP Server Status:"
+    echo "-----------------"
+    for server in mcp-tmux mcp-neovim mcp-playwright; do
+        echo -n "$server: "
+        if [[ -f "$TOOLS_AI_DIR/$server/server.js" ]]; then
+            echo -n "✓ server.js exists"
+            if [[ -d "$TOOLS_AI_DIR/$server/node_modules" ]]; then
+                echo " ✓ dependencies installed"
+            else
+                echo " ✗ dependencies not installed"
+            fi
+        else
+            echo "✗ not found"
+        fi
+    done
+    echo ""
+    
+    # Check project MCP config
+    echo "Project MCP Configuration:"
+    echo "-------------------------"
+    if [[ -f "$DOTFILES_DIR/.mcp.json" ]]; then
+        echo "✓ .mcp.json exists"
+        echo "Configured servers:"
+        grep -o '"[^"]*":' "$DOTFILES_DIR/.mcp.json" | grep -v mcpServers | sed 's/[":]//' | sed 's/^/  - /'
+    else
+        echo "✗ .mcp.json not found"
+    fi
+    echo ""
+    
+    # Test scripts
+    echo "Available Test Scripts:"
+    echo "----------------------"
+    for server in mcp-tmux mcp-neovim mcp-playwright; do
+        if [[ -x "$TOOLS_AI_DIR/$server/test-server.js" ]]; then
+            echo "✓ $server/test-server.js"
+        fi
+    done
+    
+    if [[ -x "$TOOLS_AI_DIR/claude-desktop/diagnose.sh" ]]; then
+        echo "✓ claude-desktop/diagnose.sh"
+    fi
+    
+    if [[ -x "$TOOLS_AI_DIR/claude-cli/test-mcp.sh" ]]; then
+        echo "✓ claude-cli/test-mcp.sh"
+    fi
+}
+
+# Non-interactive mode (for CI/automation)
+if [[ "$1" == "--all" ]] || [[ "$1" == "-a" ]]; then
+    install_everything
+    exit 0
+fi
+
+if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    echo "AI Tools Installer"
+    echo ""
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --all, -a         Install everything non-interactively"
+    echo "  --diagnose, -d    Run diagnostics"
+    echo "  --help, -h        Show this help message"
+    echo ""
+    echo "Without options, runs in interactive mode"
+    exit 0
+fi
+
+if [[ "$1" == "--diagnose" ]] || [[ "$1" == "-d" ]]; then
+    diagnose_installation
+    exit 0
+fi
+
+# Interactive mode
+while true; do
+    show_menu
+    read -p "Enter your choice: " choice
+    
+    case $choice in
+        1)
+            install_everything
+            break
+            ;;
+        2)
+            check_node
+            install_claude_desktop
+            ;;
+        3)
+            check_node
+            install_claude_cli
+            ;;
+        4)
+            check_node
+            install_all_mcp_servers
+            ;;
+        5)
+            check_node
+            install_specific_mcp
+            ;;
+        6)
+            diagnose_installation
+            ;;
+        7)
+            log_info "Exiting..."
+            exit 0
+            ;;
+        *)
+            log_error "Invalid choice. Please try again."
+            ;;
+    esac
+done
+
+# Final summary
+echo ""
+log_success "Installation complete!"
+echo ""
+log_info "Quick start guide:"
+echo "  1. Restart your terminal to load new configurations"
+echo "  2. For Claude CLI: run 'claude auth login' to authenticate"
+echo "  3. For Claude Desktop: restart the application"
+echo "  4. Test with: $0 --diagnose"
+echo ""
+log_info "Documentation:"
+echo "  - Claude CLI: https://docs.anthropic.com/claude-cli"
+echo "  - MCP Protocol: https://modelcontextprotocol.io"
+echo "  - Playwright: https://playwright.dev"

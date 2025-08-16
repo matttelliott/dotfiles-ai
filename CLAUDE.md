@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## CRITICAL CONTEXT
 
 **This dotfiles repository is meant to be installed on target machines, NOT the host development machine.** 
+IMPORTANT: Always update this repo dotfiles-ai before making changes on the host machine. Changes to the host machine should be done through the installers.
 
 When the user says "let's install X" or "add X", interpret this as **adding X to the dotfiles configuration**, not installing it on the current host. All changes should be made to the installation scripts and configuration files in this repository.
 

@@ -57,7 +57,12 @@ install_playwright() {
     
     # Install npm packages
     log_info "Installing npm packages..."
-    npm install
+    if npm install --production; then
+        log_success "NPM packages installed successfully"
+    else
+        log_error "Failed to install npm packages"
+        exit 1
+    fi
     
     # Install browser binaries
     log_info "Installing browser binaries (Chromium, Firefox, WebKit)..."

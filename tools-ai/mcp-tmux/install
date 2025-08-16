@@ -54,39 +54,31 @@ setup_server() {
     # Make server script executable
     chmod +x "${MCP_SERVER_DIR}/server.js"
     
-    # Install any Node.js dependencies (none currently, but setup for future)
+    # Install Node.js dependencies
     cd "${MCP_SERVER_DIR}"
-    if [[ -f package.json ]] && command -v npm >/dev/null 2>&1; then
+    if [[ -f package.json ]]; then
         log_info "Installing Node.js dependencies..."
-        npm install
+        if npm install --production; then
+            log_success "Dependencies installed successfully"
+        else
+            log_error "Failed to install npm dependencies"
+            exit 1
+        fi
+    else
+        log_warning "No package.json found, skipping dependency installation"
     fi
     
     log_success "MCP server setup complete"
 }
 
-# Setup Claude CLI configuration
-setup_claude_config() {
-    log_info "Setting up Claude CLI configuration..."
+# Setup stow-compatible structure
+setup_stow_structure() {
+    log_info "Setting up stow-compatible structure..."
     
-    # Determine Claude CLI config directory
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        CLAUDE_CONFIG_DIR="$HOME/Library/Application Support/Claude"
-    else
-        # Linux
-        CLAUDE_CONFIG_DIR="$HOME/.config/claude"
-    fi
+    # This installer focuses only on the MCP server itself
+    # Claude Desktop/CLI configs are handled by their respective installers
     
-    # Create config directory if it doesn't exist
-    mkdir -p "$CLAUDE_CONFIG_DIR"
-    
-    # Create the configuration file with proper path substitution
-    CONFIG_FILE="${CLAUDE_CONFIG_DIR}/claude_desktop_config.json"
-    
-    # Read template and substitute path
-    sed "s|{{DOTFILES_PATH}}|${DOTFILES_DIR}|g" "${MCP_SERVER_DIR}/claude-desktop-config.json" > "$CONFIG_FILE"
-    
-    log_success "Claude CLI configuration created at: $CONFIG_FILE"
+    log_success "MCP server structure ready"
 }
 
 # Create convenience scripts
@@ -182,33 +174,22 @@ EOF
     log_success "Convenience scripts created"
 }
 
-# Add aliases to shell configuration
+# Add convenience aliases
 setup_aliases() {
-    log_info "Setting up shell aliases..."
+    log_info "Creating convenience aliases..."
     
-    # Create aliases file
-    cat > "${MCP_SERVER_DIR}/aliases.zsh" << EOF
+    # Create aliases file for manual sourcing
+    cat > "${MCP_SERVER_DIR}/aliases.sh" << EOF
 # Tmux MCP Server aliases
 alias tmux-mcp-start="${MCP_SERVER_DIR}/start.sh"
 alias tmux-mcp-test="${MCP_SERVER_DIR}/test-server.js"
-alias tmux-mcp-config="cat ${CLAUDE_CONFIG_DIR}/claude_desktop_config.json"
 
-# Enhanced tmux aliases with MCP awareness
+# Enhanced tmux aliases
 alias tmux-sessions="tmux list-sessions -F '#{session_name}: #{session_windows} windows, created #{session_created_string}'"
 alias tmux-panes="tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} - #{pane_current_command} (#{pane_width}x#{pane_height})'"
 EOF
     
-    # Add to zshrc if using zsh
-    if [[ -f "${DOTFILES_DIR}/tools-cli/zsh/zshrc" ]]; then
-        if ! grep -q "tmux MCP server aliases" "${DOTFILES_DIR}/tools-cli/zsh/zshrc"; then
-            log_info "Adding aliases to zshrc..."
-            echo "" >> "${DOTFILES_DIR}/tools-cli/zsh/zshrc"
-            echo "# Tmux MCP server aliases" >> "${DOTFILES_DIR}/tools-cli/zsh/zshrc"
-            echo "source ${MCP_SERVER_DIR}/aliases.zsh" >> "${DOTFILES_DIR}/tools-cli/zsh/zshrc"
-        fi
-    fi
-    
-    log_success "Shell aliases configured"
+    log_success "Aliases created (source ${MCP_SERVER_DIR}/aliases.sh to use)"
 }
 
 # Run installation steps
@@ -217,34 +198,24 @@ main() {
     
     check_dependencies
     setup_server
-    setup_claude_config
+    setup_stow_structure
     create_scripts
     setup_aliases
     
     log_success "Tmux MCP Server installation complete!"
     echo ""
-    log_info "Next steps:"
-    echo "  1. Restart Claude CLI to load the new MCP server"
-    echo "  2. Test the installation: ${MCP_SERVER_DIR}/test-server.js"
-    echo "  3. Start using tmux commands in Claude CLI"
+    log_info "Server installed at: ${MCP_SERVER_DIR}/server.js"
     echo ""
-    log_info "Configuration file: ${CLAUDE_CONFIG_DIR}/claude_desktop_config.json"
-    log_info "Server location: ${MCP_SERVER_DIR}/server.js"
+    log_info "To use with Claude:"
+    echo "  1. Run the Claude Desktop installer: $DOTFILES_DIR/tools-ai/claude-desktop/install"
+    echo "  2. Run the Claude CLI installer: $DOTFILES_DIR/tools-ai/claude-cli/install"
     echo ""
-    log_info "Available aliases (after shell restart):"
-    echo "  tmux-mcp-start   - Start the MCP server manually"
-    echo "  tmux-mcp-test    - Test the MCP server functionality"
-    echo "  tmux-mcp-config  - View Claude CLI configuration"
-    echo "  tmux-sessions    - List all tmux sessions with details"
-    echo "  tmux-panes       - List all tmux panes across all sessions"
+    log_info "Testing:"
+    echo "  Test server: ${MCP_SERVER_DIR}/test-server.js"
+    echo ""
+    log_info "Aliases available:"
+    echo "  source ${MCP_SERVER_DIR}/aliases.sh"
 }
-
-# Set the Claude config directory for use in setup_claude_config
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    CLAUDE_CONFIG_DIR="$HOME/Library/Application Support/Claude"
-else
-    CLAUDE_CONFIG_DIR="$HOME/.config/claude"
-fi
 
 # Run main installation
 main "$@"
