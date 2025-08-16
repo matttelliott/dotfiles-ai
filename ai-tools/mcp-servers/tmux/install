@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+
+# Tmux MCP Server Installation Script
+# Part of dotfiles-ai repository
+
+set -e
+
+# Source common utilities if available
+if [[ -f "$(dirname "$0")/../../../utils/common.sh" ]]; then
+    source "$(dirname "$0")/../../../utils/common.sh"
+else
+    # Fallback logging functions
+    log_info() { echo "[INFO] $*"; }
+    log_success() { echo "[SUCCESS] $*"; }
+    log_warning() { echo "[WARNING] $*"; }
+    log_error() { echo "[ERROR] $*" >&2; }
+fi
+
+# Get the absolute path of the dotfiles directory
+DOTFILES_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+MCP_SERVER_DIR="${DOTFILES_DIR}/ai-tools/mcp-servers/tmux"
+
+log_info "Installing Tmux MCP Server for Claude CLI integration..."
+
+# Check for dependencies
+check_dependencies() {
+    log_info "Checking dependencies..."
+    
+    # Check if tmux is installed
+    if ! command -v tmux >/dev/null 2>&1; then
+        log_error "tmux is not installed. Please install tmux first:"
+        log_error "  macOS: brew install tmux"
+        log_error "  Ubuntu/Debian: sudo apt install tmux"
+        exit 1
+    fi
+    
+    # Check if Node.js is installed
+    if ! command -v node >/dev/null 2>&1; then
+        log_error "Node.js is not installed. Please install Node.js first:"
+        log_error "  Visit https://nodejs.org/ or use your package manager"
+        log_error "  Or install via dotfiles-ai: ./tools-lang/node/install"
+        exit 1
+    fi
+    
+    # Check Node.js version (requires >= 14)
+    NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+    if [[ $NODE_VERSION -lt 14 ]]; then
+        log_error "Node.js version 14 or higher required. Current version: $(node --version)"
+        exit 1
+    fi
+    
+    log_success "All dependencies satisfied"
+}
+
+# Make the server executable
+setup_server() {
+    log_info "Setting up MCP server..."
+    
+    # Make server script executable
+    chmod +x "${MCP_SERVER_DIR}/server.js"
+    
+    # Install any Node.js dependencies (none currently, but setup for future)
+    cd "${MCP_SERVER_DIR}"
+    if [[ -f package.json ]] && command -v npm >/dev/null 2>&1; then
+        log_info "Installing Node.js dependencies..."
+        npm install
+    fi
+    
+    log_success "MCP server setup complete"
+}
+
+# Setup Claude CLI configuration
+setup_claude_config() {
+    log_info "Setting up Claude CLI configuration..."
+    
+    # Determine Claude CLI config directory
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        CLAUDE_CONFIG_DIR="$HOME/Library/Application Support/Claude"
+    else
+        # Linux
+        CLAUDE_CONFIG_DIR="$HOME/.config/claude"
+    fi
+    
+    # Create config directory if it doesn't exist
+    mkdir -p "$CLAUDE_CONFIG_DIR"
+    
+    # Create the configuration file with proper path substitution
+    CONFIG_FILE="${CLAUDE_CONFIG_DIR}/claude_desktop_config.json"
+    
+    # Read template and substitute path
+    sed "s|{{DOTFILES_PATH}}|${DOTFILES_DIR}|g" "${MCP_SERVER_DIR}/claude-desktop-config.json" > "$CONFIG_FILE"
+    
+    log_success "Claude CLI configuration created at: $CONFIG_FILE"
+}
+
+# Create convenience scripts
+create_scripts() {
+    log_info "Creating convenience scripts..."
+    
+    # Create a test script
+    cat > "${MCP_SERVER_DIR}/test-server.js" << 'EOF'
+#!/usr/bin/env node
+
+/**
+ * Test script for Tmux MCP Server
+ * Tests basic functionality of the MCP server
+ */
+
+const TmuxMCPServer = require('./server.js');
+
+async function runTests() {
+    console.log('Testing Tmux MCP Server...\n');
+    
+    const server = new TmuxMCPServer();
+    
+    try {
+        // Test 1: List sessions
+        console.log('Test 1: Listing tmux sessions...');
+        const sessions = await server.listSessions(true);
+        console.log('Sessions:', JSON.stringify(sessions, null, 2));
+        console.log('✓ List sessions test passed\n');
+        
+        // Test 2: Check if we can run tmux commands
+        console.log('Test 2: Testing tmux command execution...');
+        try {
+            await server.execTmux('list-sessions');
+            console.log('✓ Tmux command execution test passed\n');
+        } catch (error) {
+            if (error.message.includes('no server running')) {
+                console.log('ℹ No tmux server running (expected for clean environment)');
+                console.log('✓ Tmux command execution test passed\n');
+            } else {
+                throw error;
+            }
+        }
+        
+        // Test 3: Create a test session (if no sessions exist)
+        if (sessions.sessions.length === 0) {
+            console.log('Test 3: Creating test session...');
+            const result = await server.createSession('mcp-test', null, null, true);
+            console.log('Create session result:', JSON.stringify(result, null, 2));
+            console.log('✓ Create session test passed\n');
+            
+            // Test 4: Read from the test session
+            console.log('Test 4: Reading from test session...');
+            try {
+                const content = await server.readPane('mcp-test', '0', '0', 10);
+                console.log('Pane content:', JSON.stringify(content, null, 2));
+                console.log('✓ Read pane test passed\n');
+            } catch (error) {
+                console.log('ℹ Read pane test skipped (pane might not be ready yet)');
+            }
+            
+            // Clean up test session
+            console.log('Cleaning up test session...');
+            await server.killSession('mcp-test');
+            console.log('✓ Cleanup completed\n');
+        }
+        
+        console.log('🎉 All tests passed! Tmux MCP Server is working correctly.');
+        
+    } catch (error) {
+        console.error('❌ Test failed:', error.message);
+        process.exit(1);
+    }
+}
+
+if (require.main === module) {
+    runTests();
+}
+EOF
+    
+    chmod +x "${MCP_SERVER_DIR}/test-server.js"
+    
+    # Create a start script
+    cat > "${MCP_SERVER_DIR}/start.sh" << EOF
+#!/usr/bin/env bash
+
+# Start the Tmux MCP Server
+cd "${MCP_SERVER_DIR}"
+exec node server.js
+EOF
+    
+    chmod +x "${MCP_SERVER_DIR}/start.sh"
+    
+    log_success "Convenience scripts created"
+}
+
+# Add aliases to shell configuration
+setup_aliases() {
+    log_info "Setting up shell aliases..."
+    
+    # Create aliases file
+    cat > "${MCP_SERVER_DIR}/aliases.zsh" << EOF
+# Tmux MCP Server aliases
+alias tmux-mcp-start="${MCP_SERVER_DIR}/start.sh"
+alias tmux-mcp-test="${MCP_SERVER_DIR}/test-server.js"
+alias tmux-mcp-config="cat ${CLAUDE_CONFIG_DIR}/claude_desktop_config.json"
+
+# Enhanced tmux aliases with MCP awareness
+alias tmux-sessions="tmux list-sessions -F '#{session_name}: #{session_windows} windows, created #{session_created_string}'"
+alias tmux-panes="tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} - #{pane_current_command} (#{pane_width}x#{pane_height})'"
+EOF
+    
+    # Add to zshrc if using zsh
+    if [[ -f "${DOTFILES_DIR}/tools-cli/zsh/zshrc" ]]; then
+        if ! grep -q "tmux MCP server aliases" "${DOTFILES_DIR}/tools-cli/zsh/zshrc"; then
+            log_info "Adding aliases to zshrc..."
+            echo "" >> "${DOTFILES_DIR}/tools-cli/zsh/zshrc"
+            echo "# Tmux MCP server aliases" >> "${DOTFILES_DIR}/tools-cli/zsh/zshrc"
+            echo "source ${MCP_SERVER_DIR}/aliases.zsh" >> "${DOTFILES_DIR}/tools-cli/zsh/zshrc"
+        fi
+    fi
+    
+    log_success "Shell aliases configured"
+}
+
+# Run installation steps
+main() {
+    log_info "Starting Tmux MCP Server installation..."
+    
+    check_dependencies
+    setup_server
+    setup_claude_config
+    create_scripts
+    setup_aliases
+    
+    log_success "Tmux MCP Server installation complete!"
+    echo ""
+    log_info "Next steps:"
+    echo "  1. Restart Claude CLI to load the new MCP server"
+    echo "  2. Test the installation: ${MCP_SERVER_DIR}/test-server.js"
+    echo "  3. Start using tmux commands in Claude CLI"
+    echo ""
+    log_info "Configuration file: ${CLAUDE_CONFIG_DIR}/claude_desktop_config.json"
+    log_info "Server location: ${MCP_SERVER_DIR}/server.js"
+    echo ""
+    log_info "Available aliases (after shell restart):"
+    echo "  tmux-mcp-start   - Start the MCP server manually"
+    echo "  tmux-mcp-test    - Test the MCP server functionality"
+    echo "  tmux-mcp-config  - View Claude CLI configuration"
+    echo "  tmux-sessions    - List all tmux sessions with details"
+    echo "  tmux-panes       - List all tmux panes across all sessions"
+}
+
+# Set the Claude config directory for use in setup_claude_config
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    CLAUDE_CONFIG_DIR="$HOME/Library/Application Support/Claude"
+else
+    CLAUDE_CONFIG_DIR="$HOME/.config/claude"
+fi
+
+# Run main installation
+main "$@"

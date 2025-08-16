@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "tmux": {
+      "command": "node",
+      "args": ["/home/matt/dotfiles-ai/mcp-servers/tmux/server.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

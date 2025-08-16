@@ -2056,3 +2056,98 @@ work-session() {
     fi
 }
 
+
+# pyenv (Python Version Manager)
+export PYENV_ROOT="$HOME/.pyenv"
+command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)" 2>/dev/null || true
+
+# pyenv aliases
+alias pyv="pyenv versions"
+alias pyi="pyenv install"
+alias pyg="pyenv global"
+alias pyl="pyenv local"
+alias pys="pyenv shell"
+alias pyu="pyenv uninstall"
+alias pyup="cd ~/.pyenv && git pull"
+
+# Auto-activate virtualenv
+if command -v pyenv-virtualenv-init > /dev/null; then
+  eval "$(pyenv virtualenv-init -)"
+fi
+
+
+# uv (Fast Python package manager)
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# uv aliases
+alias uvv="uv venv"
+alias uvi="uv pip install"
+alias uvs="uv pip sync"
+alias uvl="uv pip list"
+alias uvf="uv pip freeze"
+alias uvr="uv run"
+alias uva="source .venv/bin/activate"
+alias uvd="deactivate"
+
+# Quick virtual environment activation
+venv() {
+    if [[ -d ".venv" ]]; then
+        source .venv/bin/activate
+    elif [[ -d "venv" ]]; then
+        source venv/bin/activate
+    else
+        echo "No virtual environment found"
+    fi
+}
+
+
+# Python global tools
+export PATH="$HOME/.python-tools/bin:$PATH"
+
+
+# rbenv (Ruby Version Manager)
+export PATH="$HOME/.rbenv/bin:$PATH"
+eval "$(rbenv init - 2>/dev/null || true)"
+
+# rbenv aliases
+alias rbv="rbenv versions"
+alias rbi="rbenv install"
+alias rbg="rbenv global"
+alias rbl="rbenv local"
+alias rbs="rbenv shell"
+alias rbu="rbenv uninstall"
+alias rbr="rbenv rehash"
+alias rbw="rbenv which"
+alias rbp="rbenv version"
+
+# Bundle aliases
+alias be="bundle exec"
+alias bi="bundle install"
+alias bu="bundle update"
+alias bc="bundle clean"
+alias bo="bundle open"
+
+# Rails aliases
+alias rs="rails server"
+alias rc="rails console"
+alias rg="rails generate"
+alias rd="rails destroy"
+alias rdb="rails db:migrate"
+alias rdbr="rails db:rollback"
+alias rdbs="rails db:seed"
+alias rt="rails test"
+alias rr="rails routes"
+
+# Gem aliases
+alias gi="gem install"
+alias gu="gem update"
+alias gun="gem uninstall"
+alias gl="gem list"
+alias gs="gem search"
+
+# Ruby aliases
+alias rb="ruby"
+alias irb="irb --simple-prompt"
+

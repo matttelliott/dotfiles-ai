@@ -1,0 +1,59 @@
+# API Keys and credentials
+*.env
+*.env.*
+!*.env.example
+*-keys.*
+api-keys/
+credentials/
+secrets/
+
+# Local configurations
+*.local
+*.local.*
+local/
+
+# Node modules (for MCP servers)
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Python environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Model downloads (large files)
+models/ollama/custom/*.bin
+models/ollama/custom/*.gguf
+models/*/downloads/
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE configurations
+.vscode/
+.idea/
+*.iml
+
+# Test outputs
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

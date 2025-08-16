@@ -1,0 +1,35 @@
+{
+  "name": "tmux-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) server for tmux integration with Claude CLI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "mcp",
+    "tmux",
+    "claude",
+    "terminal",
+    "multiplexer"
+  ],
+  "author": "dotfiles-ai",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "bin": {
+    "tmux-mcp-server": "./server.js"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/dotfiles-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/dotfiles-ai/issues"
+  },
+  "homepage": "https://github.com/your-repo/dotfiles-ai#readme"
+}
