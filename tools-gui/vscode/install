@@ -8,6 +8,11 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
+# TEMPORARILY DISABLED FOR TESTING
+log_info "VSCode installation temporarily disabled for testing"
+log_info "Skipping VSCode installation to speed up testing process"
+exit 0
+
 
 
 

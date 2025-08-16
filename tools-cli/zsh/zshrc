@@ -1,4 +1,8 @@
 
+# Enable zsh completion system
+autoload -Uz compinit
+compinit
+
 # 1PASSWORD_INTEGRATION
 # 1Password CLI integration
 export OP_BIOMETRIC_UNLOCK_ENABLED=true
@@ -56,7 +60,7 @@ awssso() {
 }
 
 # EC2
-alias ec2ls="aws ec2 describe-instances --output table --query 'Reservations[].Instances[].{ID:InstanceId,Type:InstanceType,State:State.Name,Name:Tags[?Key==`Name`]|[0].Value}'"
+alias ec2ls="aws ec2 describe-instances --output table --query 'Reservations[].Instances[].{ID:InstanceId,Type:InstanceType,State:State.Name,Name:Tags[?Key==\`Name\`]|[0].Value}'"
 alias ec2running="aws ec2 describe-instances --filters Name=instance-state-name,Values=running --output table"
 alias ec2stop="aws ec2 stop-instances --instance-ids"
 alias ec2start="aws ec2 start-instances --instance-ids"
@@ -578,8 +582,12 @@ alias fds='fd --size'        # filter by size
 [ -f ~/.config/fzf/fzf.zsh ] && source ~/.config/fzf/fzf.zsh
 
 # Google Cloud SDK
-if [ -f '/home/matt/google-cloud-sdk/path.bash.inc' ]; then . '/home/matt/google-cloud-sdk/path.bash.inc'; fi
-if [ -f '/home/matt/google-cloud-sdk/completion.bash.inc' ]; then . '/home/matt/google-cloud-sdk/completion.bash.inc'; fi
+if [[ -f '/home/matt/google-cloud-sdk/path.bash.inc' ]]; then 
+    source '/home/matt/google-cloud-sdk/path.bash.inc' 2>/dev/null || true
+fi
+if [[ -f '/home/matt/google-cloud-sdk/completion.bash.inc' ]]; then 
+    source '/home/matt/google-cloud-sdk/completion.bash.inc' 2>/dev/null || true
+fi
 
 # Google Cloud aliases
 alias gc="gcloud"
@@ -1052,7 +1060,7 @@ alias mem="top -o mem"
 alias disk="ncdu /"
 alias net="sudo nethogs"
 alias io="sudo iotop"
-alias bandwidth="bmon"
+alias bw="bmon"
 
 # Process management
 alias psg="ps aux | grep -v grep | grep"
@@ -1166,4 +1174,837 @@ health() {
     echo "Top Processes:"
     ps aux | sort -rk 3 | head -5
 }
+
+
+# Network tool aliases
+alias n="nmap"
+alias ns="nmap -sn"  # Ping scan
+alias np="nmap -p"   # Port scan
+alias nv="nmap -sV"  # Version detection
+alias na="nmap -A"   # Aggressive scan
+
+# Port scanning
+scan-ports() {
+    # Quick port scan
+    local host="${1:-localhost}"
+    nmap -F "$host"
+}
+
+scan-all-ports() {
+    # Scan all ports
+    local host="${1:-localhost}"
+    nmap -p- "$host"
+}
+
+scan-tcp() {
+    # TCP scan
+    local host="${1:-localhost}"
+    nmap -sT "$host"
+}
+
+scan-udp() {
+    # UDP scan (requires root)
+    local host="${1:-localhost}"
+    sudo nmap -sU "$host"
+}
+
+scan-network() {
+    # Scan local network
+    local network="${1:-192.168.1.0/24}"
+    nmap -sn "$network"
+}
+
+# Netcat shortcuts
+alias nc-listen="nc -l"
+alias nc-scan="nc -zv"
+
+# Network testing
+test-port() {
+    # Test if port is open
+    local host="$1"
+    local port="$2"
+    nc -zv "$host" "$port"
+}
+
+http-server() {
+    # Quick HTTP server
+    local port="${1:-8000}"
+    python3 -m http.server "$port"
+}
+
+tcp-server() {
+    # Simple TCP server
+    local port="${1:-9999}"
+    nc -l "$port"
+}
+
+tcp-client() {
+    # Connect to TCP server
+    local host="$1"
+    local port="$2"
+    nc "$host" "$port"
+}
+
+# MTR (My TraceRoute)
+alias mtr="mtr --report-wide --show-ips"
+alias mtrr="mtr --report --report-cycles 30"
+
+trace() {
+    # Enhanced traceroute
+    local host="$1"
+    if command -v mtr &> /dev/null; then
+        mtr "$host"
+    else
+        traceroute "$host"
+    fi
+}
+
+# DNS tools
+alias d="dig"
+alias dx="dig +short"
+alias dns="dig +trace"
+
+dns-lookup() {
+    # DNS lookup with multiple tools
+    local domain="$1"
+    echo "=== nslookup ==="
+    nslookup "$domain"
+    echo
+    echo "=== dig ==="
+    dig "$domain"
+    echo
+    echo "=== host ==="
+    host "$domain"
+}
+
+reverse-dns() {
+    # Reverse DNS lookup
+    dig -x "$1"
+}
+
+# Network information
+myip() {
+    # Get public IP
+    curl -s ifconfig.me
+    echo
+}
+
+localip() {
+    # Get local IP
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        ifconfig | grep "inet " | grep -v 127.0.0.1 | awk "{print \$2}"
+    else
+        ip addr show | grep "inet " | grep -v 127.0.0.1 | awk "{print \$2}"
+    fi
+}
+
+ports() {
+    # Show listening ports
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo lsof -iTCP -sTCP:LISTEN -P
+    else
+        sudo netstat -tulpn
+    fi
+}
+
+connections() {
+    # Show network connections
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        netstat -an | grep ESTABLISHED
+    else
+        ss -tunap | grep ESTAB
+    fi
+}
+
+# Bandwidth testing
+speed() {
+    # Run speedtest
+    if command -v speedtest &> /dev/null; then
+        speedtest
+    elif command -v speedtest-cli &> /dev/null; then
+        speedtest-cli
+    else
+        echo "speedtest not installed"
+    fi
+}
+
+bandwidth() {
+    # Test bandwidth between hosts
+    local mode="${1:-server}"
+    if [[ "$mode" == "server" ]]; then
+        iperf3 -s
+    else
+        iperf3 -c "$1"
+    fi
+}
+
+# Packet capture
+capture() {
+    # Capture packets
+    local interface="${1:-any}"
+    local output="${2:-capture.pcap}"
+    sudo tcpdump -i "$interface" -w "$output"
+}
+
+capture-http() {
+    # Capture HTTP traffic
+    sudo tcpdump -i any -s 0 -A "tcp port 80"
+}
+
+capture-dns() {
+    # Capture DNS queries
+    sudo tcpdump -i any -s 0 port 53
+}
+
+# WHOIS shortcuts
+alias w="whois"
+
+whois-ip() {
+    whois "$1" | grep -E "(OrgName|NetRange|CIDR|Country)"
+}
+
+# Socat examples
+proxy-tcp() {
+    # TCP proxy
+    local lport="$1"
+    local rhost="$2"
+    local rport="$3"
+    socat TCP-LISTEN:"$lport",fork TCP:"$rhost":"$rport"
+}
+
+# RustScan (if installed)
+if command -v rustscan &> /dev/null; then
+    alias rs="rustscan"
+    alias rscan="rustscan -a"
+    
+    fast-scan() {
+        rustscan -a "$1" -- -A -sC -sV
+    }
+fi
+
+# Network debugging
+net-debug() {
+    local host="${1:-google.com}"
+    echo "=== Ping ==="
+    ping -c 4 "$host"
+    echo
+    echo "=== Traceroute ==="
+    traceroute "$host"
+    echo
+    echo "=== DNS ==="
+    dig "$host"
+    echo
+    echo "=== Port 80/443 ==="
+    nc -zv "$host" 80
+    nc -zv "$host" 443
+}
+
+
+# PostgreSQL aliases
+alias psql="psql -U postgres"
+alias pg="psql"
+alias pgd="psql -d"
+alias pgl="psql -l"  # List databases
+alias pgdu="psql -c \"SELECT datname, pg_size_pretty(pg_database_size(datname)) FROM pg_database ORDER BY pg_database_size(datname) DESC;\""  # Database sizes
+alias pgt="psql -c \"SELECT schemaname,tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema');\""  # List tables
+
+# PostgreSQL functions
+pgconnect() {
+    # Connect with common format
+    psql "postgresql://${1:-localhost}:${2:-5432}/${3:-postgres}?user=${4:-postgres}"
+}
+
+pgdump() {
+    # Dump database
+    pg_dump -U postgres -h localhost -d "$1" -f "${1}_$(date +%Y%m%d_%H%M%S).sql"
+}
+
+pgrestore() {
+    # Restore database
+    psql -U postgres -h localhost -d "$1" -f "$2"
+}
+
+pgsize() {
+    # Get table sizes
+    psql -U postgres -d "$1" -c "SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size FROM pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema') ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC LIMIT 20;"
+}
+
+pgkill() {
+    # Kill query by PID
+    psql -U postgres -c "SELECT pg_terminate_backend($1);"
+}
+
+
+# Starship prompt
+eval "$(starship init zsh)"
+
+# Ripgrep configuration
+export RIPGREP_CONFIG_PATH="$HOME/.ripgreprc"
+
+# Ripgrep aliases
+alias rg='rg --color=auto'
+alias rgi='rg -i'  # case insensitive
+alias rgf='rg -F'  # fixed string (literal)
+alias rgl='rg -l'  # files with matches
+alias rgc='rg -c'  # count matches
+alias rgn='rg --no-ignore'  # search ignored files too
+alias rgh='rg --hidden'  # search hidden files
+alias rgw='rg -w'  # whole words only
+
+
+# SQLite aliases
+alias sq="sqlite3"
+alias sql="sqlite3"
+alias sqm="sqlite3 :memory:"  # In-memory database
+alias lite="litecli"
+
+# SQLite functions
+sqopen() {
+    # Open SQLite database with better defaults
+    sqlite3 -column -header "$@"
+}
+
+sqmem() {
+    # Create in-memory database with sample data
+    sqlite3 :memory: "
+        CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);
+        INSERT INTO users VALUES (1, 'Alice', 'alice@example.com');
+        INSERT INTO users VALUES (2, 'Bob', 'bob@example.com');
+        SELECT * FROM users;
+    " -column -header
+}
+
+sqbackup() {
+    # Backup SQLite database
+    if [[ -z "$1" ]]; then
+        echo "Usage: sqbackup database.db"
+        return 1
+    fi
+    sqlite3 "$1" ".backup '${1%.db}_$(date +%Y%m%d_%H%M%S).db'"
+    echo "Backup created: ${1%.db}_$(date +%Y%m%d_%H%M%S).db"
+}
+
+sqtables() {
+    # List tables in database
+    sqlite3 "$1" ".tables"
+}
+
+sqschema() {
+    # Show schema for database or table
+    if [[ -z "$2" ]]; then
+        sqlite3 "$1" ".schema"
+    else
+        sqlite3 "$1" ".schema $2"
+    fi
+}
+
+sqcount() {
+    # Count rows in table
+    sqlite3 "$1" "SELECT COUNT(*) FROM $2;"
+}
+
+sqjson() {
+    # Export table to JSON using sqlite-utils
+    if command -v sqlite-utils &> /dev/null; then
+        sqlite-utils rows "$1" "$2" --json
+    else
+        echo "sqlite-utils not installed"
+    fi
+}
+
+sqcsv() {
+    # Export query results to CSV
+    sqlite3 -csv -header "$1" "$2"
+}
+
+sqweb() {
+    # Open database in datasette web interface
+    if command -v datasette &> /dev/null; then
+        datasette "$1"
+    else
+        echo "datasette not installed"
+    fi
+}
+
+sqvacuum() {
+    # Vacuum and analyze database
+    sqlite3 "$1" "VACUUM; ANALYZE;"
+    echo "Database vacuumed and analyzed"
+}
+
+sqintegrity() {
+    # Check database integrity
+    sqlite3 "$1" "PRAGMA integrity_check;"
+}
+
+source /home/matt/.tmuxinator/completion/tmuxinator.zsh
+
+# Tmuxinator aliases
+alias mux="tmuxinator"
+alias muxn="tmuxinator new"
+alias muxo="tmuxinator open"
+alias muxs="tmuxinator start"
+alias muxst="tmuxinator stop"
+alias muxe="tmuxinator edit"
+alias muxc="tmuxinator copy"
+alias muxd="tmuxinator delete"
+alias muxl="tmuxinator list"
+alias muxi="tmuxinator implode"
+alias muxv="tmuxinator version"
+alias muxdoc="tmuxinator doctor"
+
+# Tmuxinator functions
+mux-create() {
+    # Create new project
+    local name="${1:-project}"
+    tmuxinator new "$name"
+}
+
+mux-start() {
+    # Start or attach to project
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    tmuxinator start "$name"
+}
+
+mux-edit() {
+    # Edit project config
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    tmuxinator edit "$name"
+}
+
+mux-delete() {
+    # Delete project with confirmation
+    local name="${1}"
+    if [[ -z "$name" ]]; then
+        echo "Available projects:"
+        tmuxinator list
+        return 1
+    fi
+    read -p "Delete project $name? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        tmuxinator delete "$name"
+    fi
+}
+
+mux-debug() {
+    # Debug project configuration
+    local name="${1}"
+    tmuxinator debug "$name"
+}
+
+# Quick session functions
+dev-session() {
+    # Start development session
+    if tmuxinator list | grep -q "dev"; then
+        tmuxinator start dev
+    else
+        echo "Creating dev session template..."
+        tmuxinator new dev
+    fi
+}
+
+work-session() {
+    # Start work session
+    if tmuxinator list | grep -q "work"; then
+        tmuxinator start work
+    else
+        echo "Creating work session template..."
+        tmuxinator new work
+    fi
+}
+
+
+# Tmux MCP integration
+[[ -f "/home/matt/dotfiles-ai/tools-cli/tmux-mcp/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-cli/tmux-mcp/aliases.sh"
+
+# Tree aliases
+alias t='tree'
+alias t1='tree -L 1'
+alias t2='tree -L 2'
+alias t3='tree -L 3'
+alias ta='tree -a'
+alias td='tree -d'  # directories only
+alias tf='tree -f'  # full path
+alias tg='tree --gitignore'  # respect .gitignore
+alias ts='tree -h'  # show sizes in human readable
+alias tds='tree -d -h'  # directories with sizes
+
+
+# Go language
+export GOROOT="/usr/local/go"
+export GOPATH="$HOME/go"
+export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+
+# Go environment variables
+export GO111MODULE="on"
+export GOPROXY="https://proxy.golang.org,direct"
+export GOSUMDB="sum.golang.org"
+export GOPRIVATE=""
+
+# Go aliases
+alias gob="go build"
+alias gobv="go build -v"
+alias goba="go build ./..."
+alias gor="go run"
+alias gorv="go run -v"
+alias gorm="go run main.go"
+alias got="go test"
+alias gotv="go test -v"
+alias gota="go test ./..."
+alias gotc="go test -cover"
+alias gotcv="go test -cover -v"
+alias gotb="go test -bench ."
+alias gof="go fmt"
+alias gofa="go fmt ./..."
+alias gog="go get"
+alias gogu="go get -u"
+alias goga="go get -u ./..."
+alias goi="go install"
+alias gom="go mod"
+alias gomi="go mod init"
+alias gomt="go mod tidy"
+alias gomd="go mod download"
+alias gomv="go mod vendor"
+alias gov="go vet"
+alias gova="go vet ./..."
+alias gol="golangci-lint run"
+alias gola="golangci-lint run ./..."
+alias gow="go work"
+
+# Go functions
+gocover() {
+    go test -coverprofile=coverage.out "$@" && go tool cover -html=coverage.out
+}
+
+gonew() {
+    if [ -z "$1" ]; then
+        echo "Usage: gonew <module-name>"
+        return 1
+    fi
+    mkdir -p "$1" && cd "$1" && go mod init "$1"
+}
+
+
+# nvm (Node Version Manager)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# Auto-switch Node version based on .nvmrc
+autoload -U add-zsh-hook 2>/dev/null || true
+load-nvmrc() {
+  local nvmrc_path="$(nvm_find_nvmrc)"
+  if [ -n "$nvmrc_path" ]; then
+    local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
+    if [ "$nvmrc_node_version" = "N/A" ]; then
+      nvm install
+    elif [ "$nvmrc_node_version" != "$(nvm version)" ]; then
+      nvm use
+    fi
+  elif [ -n "$(PWD=$OLDPWD nvm_find_nvmrc)" ] && [ "$(nvm version)" != "$(nvm version default)" ]; then
+    echo "Reverting to nvm default version"
+    nvm use default
+  fi
+}
+type -t add-zsh-hook >/dev/null 2>&1 && add-zsh-hook chpwd load-nvmrc || true
+load-nvmrc 2>/dev/null || true
+
+# nvm aliases
+alias nvmi="nvm install"
+alias nvmu="nvm use"
+alias nvml="nvm list"
+alias nvmr="nvm run"
+alias nvme="nvm exec"
+alias nvmw="nvm which"
+alias nvmlts="nvm install --lts && nvm use --lts"
+
+
+# pyenv (Python Version Manager)
+export PYENV_ROOT="$HOME/.pyenv"
+command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)" 2>/dev/null || true
+
+# pyenv aliases
+alias pyv="pyenv versions"
+alias pyi="pyenv install"
+alias pyg="pyenv global"
+alias pyl="pyenv local"
+alias pys="pyenv shell"
+alias pyu="pyenv uninstall"
+alias pyup="cd ~/.pyenv && git pull"
+
+# Auto-activate virtualenv
+if command -v pyenv-virtualenv-init > /dev/null; then
+  eval "$(pyenv virtualenv-init -)"
+fi
+
+
+# uv (Fast Python package manager)
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# uv aliases
+alias uvv="uv venv"
+alias uvi="uv pip install"
+alias uvs="uv pip sync"
+alias uvl="uv pip list"
+alias uvf="uv pip freeze"
+alias uvr="uv run"
+alias uva="source .venv/bin/activate"
+alias uvd="deactivate"
+
+# Quick virtual environment activation
+venv() {
+    if [[ -d ".venv" ]]; then
+        source .venv/bin/activate
+    elif [[ -d "venv" ]]; then
+        source venv/bin/activate
+    else
+        echo "No virtual environment found"
+    fi
+}
+
+
+# Python global tools
+export PATH="$HOME/.python-tools/bin:$PATH"
+
+
+# rbenv (Ruby Version Manager)
+export PATH="$HOME/.rbenv/bin:$PATH"
+eval "$(rbenv init - 2>/dev/null || true)"
+
+# rbenv aliases
+alias rbv="rbenv versions"
+alias rbi="rbenv install"
+alias rbg="rbenv global"
+alias rbl="rbenv local"
+alias rbs="rbenv shell"
+alias rbu="rbenv uninstall"
+alias rbr="rbenv rehash"
+alias rbw="rbenv which"
+alias rbp="rbenv version"
+
+# Bundle aliases
+alias be="bundle exec"
+alias bi="bundle install"
+alias bu="bundle update"
+alias bc="bundle clean"
+alias bo="bundle open"
+
+# Rails aliases
+alias rs="rails server"
+alias rc="rails console"
+alias rg="rails generate"
+alias rd="rails destroy"
+alias rdb="rails db:migrate"
+alias rdbr="rails db:rollback"
+alias rdbs="rails db:seed"
+alias rt="rails test"
+alias rr="rails routes"
+
+# Gem aliases
+alias gi="gem install"
+alias gu="gem update"
+alias gun="gem uninstall"
+alias gl="gem list"
+alias gs="gem search"
+
+# Ruby aliases
+alias rb="ruby"
+alias irb="irb --simple-prompt"
+
+
+# Rust
+source "$HOME/.cargo/env" 2>/dev/null || true
+
+# Rust aliases
+alias cb="cargo build"
+alias cbr="cargo build --release"
+alias cr="cargo run"
+alias crr="cargo run --release"
+alias ct="cargo test"
+alias cc="cargo check"
+alias cf="cargo fmt"
+alias cfc="cargo fmt --check"
+alias ccl="cargo clippy"
+alias cclf="cargo clippy --fix"
+alias cu="cargo update"
+alias ci="cargo install"
+alias cn="cargo new"
+alias cd="cargo doc"
+alias cdo="cargo doc --open"
+alias cw="cargo watch"
+alias cwr="cargo watch -x run"
+alias cwt="cargo watch -x test"
+alias cwc="cargo watch -x check"
+
+# Cargo extensions shortcuts
+alias cargo-edit="cargo install cargo-edit"     # Add/remove deps from CLI
+alias cargo-watch="cargo install cargo-watch"   # Auto-rebuild on changes
+alias cargo-expand="cargo install cargo-expand" # Expand macros
+alias cargo-audit="cargo install cargo-audit"   # Security audit
+
+
+# sccache for faster Rust compilation
+export RUSTC_WRAPPER="sccache"
+export SCCACHE_DIR="$HOME/.cache/sccache"
+export SCCACHE_CACHE_SIZE="10G"
+
+
+# Browser aliases
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    alias chrome="open -a \"Google Chrome\""
+    alias chrome-canary="open -a \"Google Chrome Canary\""
+    alias firefox="open -a Firefox"
+    alias firefox-dev="open -a \"Firefox Developer Edition\""
+    alias brave="open -a \"Brave Browser\""
+    alias chromium="open -a Chromium"
+    alias opera="open -a Opera"
+    alias vivaldi="open -a Vivaldi"
+    
+    # Open URL in specific browser
+    chrome-open() { open -a "Google Chrome" "$1"; }
+    chrome-canary-open() { open -a "Google Chrome Canary" "$1"; }
+    firefox-open() { open -a Firefox "$1"; }
+    firefox-dev-open() { open -a "Firefox Developer Edition" "$1"; }
+    brave-open() { open -a "Brave Browser" "$1"; }
+    opera-open() { open -a Opera "$1"; }
+    vivaldi-open() { open -a Vivaldi "$1"; }
+else
+    alias chrome="google-chrome-stable"
+    alias chromium="chromium-browser"
+    alias firefox-dev="firefox-developer-edition"
+    alias opera="opera"
+    alias vivaldi="vivaldi-stable"
+    
+    # Open URL in specific browser
+    chrome-open() { google-chrome-stable "$1" &; }
+    firefox-open() { firefox "$1" &; }
+    firefox-dev-open() { firefox-developer-edition "$1" &; }
+    brave-open() { brave-browser "$1" &; }
+    opera-open() { opera "$1" &; }
+    vivaldi-open() { vivaldi-stable "$1" &; }
+fi
+
+# Browser development shortcuts
+alias chrome-dev="chrome --disable-web-security --user-data-dir=/tmp/chrome_dev"
+alias chrome-incognito="chrome --incognito"
+alias firefox-private="firefox --private-window"
+
+# Clear browser caches
+clear-chrome-cache() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        rm -rf ~/Library/Caches/Google/Chrome
+    else
+        rm -rf ~/.cache/google-chrome
+    fi
+    echo "Chrome cache cleared"
+}
+
+clear-firefox-cache() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        rm -rf ~/Library/Caches/Firefox
+    else
+        rm -rf ~/.cache/mozilla/firefox
+    fi
+    echo "Firefox cache cleared"
+}
+
+# Kill all browser processes
+kill-browsers() {
+    pkill -f chrome || true
+    pkill -f firefox || true
+    pkill -f brave || true
+    echo "All browser processes killed"
+}
+
+# Browser profiles
+chrome-profile() {
+    local profile="${1:-Default}"
+    chrome --profile-directory="$profile"
+}
+
+firefox-profile() {
+    firefox -P "$1"
+}
+
+
+# VS Code aliases
+alias c="code"
+alias c.="code ."
+alias cn="code -n"  # New window
+alias cr="code -r"  # Reuse window
+alias cd="code --diff"  # Diff two files
+
+# VS Code functions
+code-ext() {
+    # List or manage extensions
+    case "$1" in
+        list) code --list-extensions ;;
+        install) shift; code --install-extension "$@" ;;
+        uninstall) shift; code --uninstall-extension "$@" ;;
+        *) echo "Usage: code-ext [list|install|uninstall]" ;;
+    esac
+}
+
+code-settings() {
+    # Open VS Code settings
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        code "$HOME/Library/Application Support/Code/User/settings.json"
+    else
+        code "$HOME/.config/Code/User/settings.json"
+    fi
+}
+
+code-sync() {
+    # Export extensions list
+    code --list-extensions > ~/.vscode-extensions.txt
+    echo "Extensions list saved to ~/.vscode-extensions.txt"
+}
+
+code-restore() {
+    # Restore extensions from list
+    if [[ -f ~/.vscode-extensions.txt ]]; then
+        cat ~/.vscode-extensions.txt | xargs -L 1 code --install-extension
+    else
+        echo "No extensions list found"
+    fi
+}
+
+
+# Neovim MCP integration
+[[ -f "/home/matt/dotfiles-ai/tools-ai/mcp-neovim/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-ai/mcp-neovim/aliases.sh"
+
+# Playwright MCP integration
+[[ -f "/home/matt/dotfiles-ai/tools-ai/mcp-playwright/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-ai/mcp-playwright/aliases.sh"
+
+# Tmux MCP server aliases
+source /home/matt/dotfiles-ai/tools-ai/mcp-tmux/aliases.zsh
+
+# Tmux MCP server aliases
+source /home/matt/dotfiles-ai/tools-ai/mcp-tmux/aliases.zsh
+
+# AI Models Configuration
+export AI_MODELS_CONFIG_DIR="$HOME/.config/ai-models"
+export DEFAULT_AI_PROVIDER="claude"
+export DEFAULT_CLAUDE_MODEL="claude-3-sonnet-20240229"
+export DEFAULT_OPENAI_MODEL="gpt-4"
+export DEFAULT_OLLAMA_MODEL="llama2"
+
+# AI model helper functions
+ai-config-claude() { cat "$AI_MODELS_CONFIG_DIR/claude-config.json"; }
+ai-config-openai() { cat "$AI_MODELS_CONFIG_DIR/openai-config.json"; }
+ai-config-ollama() { cat "$AI_MODELS_CONFIG_DIR/ollama-config.json"; }
+ai-config-list() { ls -la "$AI_MODELS_CONFIG_DIR"/*.json; }
 

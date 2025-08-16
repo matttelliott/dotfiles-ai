@@ -161,7 +161,6 @@ install_global_packages() {
         "prettier"          # Code formatter
         "eslint"            # Linter
         "npm-check-updates" # Update package.json dependencies
-        "npx"               # Execute npm packages
         "serve"             # Static file server
         "concurrently"      # Run multiple commands
         "cross-env"         # Cross-platform env variables

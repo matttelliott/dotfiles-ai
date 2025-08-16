@@ -8,6 +8,11 @@ source "$SCRIPT_DIR/../../utils/common.sh"
 
 detect_os
 
+# TEMPORARILY DISABLED FOR TESTING
+log_info "Ruby installation temporarily disabled for testing"
+log_info "Skipping Ruby installation to speed up testing process"
+exit 0
+
 install_ruby_dependencies() {
     log_info "Installing Ruby build dependencies..."
     

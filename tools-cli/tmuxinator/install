@@ -133,18 +133,14 @@ mux-edit() {
 }
 
 mux-delete() {
-    # Delete project with confirmation
+    # Delete project
     local name="${1}"
     if [[ -z "$name" ]]; then
         echo "Available projects:"
         tmuxinator list
         return 1
     fi
-    read -p "Delete project $name? (y/n) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        tmuxinator delete "$name"
-    fi
+    tmuxinator delete "$name"
 }
 
 mux-debug() {

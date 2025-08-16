@@ -166,13 +166,13 @@ install_firefox_developer() {
             local temp_dir="/tmp/firefox-dev-$$"
             mkdir -p "$temp_dir"
             
-            wget -O "$temp_dir/firefox-dev.tar.bz2" "$ff_dev_url" || {
+            wget -O "$temp_dir/firefox-dev.tar.xz" "$ff_dev_url" || {
                 log_warning "Failed to download Firefox Developer Edition"
                 return 1
             }
             
             # Extract to /opt
-            safe_sudo tar -xjf "$temp_dir/firefox-dev.tar.bz2" -C /opt/
+            safe_sudo tar -xJf "$temp_dir/firefox-dev.tar.xz" -C /opt/
             safe_sudo mv /opt/firefox /opt/firefox-developer-edition
             
             # Create desktop entry and symlink
@@ -231,10 +231,10 @@ install_opera() {
             ;;
         debian|mint)
             # Add Opera repository
-            wget -qO- https://deb.opera.com/archive.key | safe_sudo apt-key add -
-            echo "deb https://deb.opera.com/opera-stable/ stable non-free" | sudo tee /etc/apt/sources.list.d/opera-stable.list
+            curl -fsSL https://deb.opera.com/archive.key | safe_sudo gpg --dearmor -o /usr/share/keyrings/opera-keyring.gpg
+            echo "deb [signed-by=/usr/share/keyrings/opera-keyring.gpg] https://deb.opera.com/opera-stable/ stable non-free" | safe_sudo tee /etc/apt/sources.list.d/opera-stable.list > /dev/null
             safe_sudo apt update
-            safe_sudo apt install -y opera-stable
+            DEBIAN_FRONTEND=noninteractive safe_sudo apt install -y opera-stable
             ;;
     esac
     
