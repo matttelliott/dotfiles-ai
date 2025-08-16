@@ -2,13 +2,13 @@
 # Ignore installation scripts and documentation
 
 install
-setup.sh
-README.md
-*.sh
+setup\.sh
+README\.md
+.*\.sh
 LICENSE
 test/
 __pycache__/
-*.pyc
+.*\.pyc
 node_modules/
-package.json
-package-lock.json
+package\.json
+package-lock\.json
