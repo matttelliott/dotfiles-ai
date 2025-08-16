@@ -5,20 +5,33 @@
 
 set -e
 
-# Source common utilities if available
-if [[ -f "$(dirname "$0")/../../../utils/common.sh" ]]; then
-    source "$(dirname "$0")/../../../utils/common.sh"
-else
-    # Fallback logging functions
-    log_info() { echo "[INFO] $*"; }
-    log_success() { echo "[SUCCESS] $*"; }
-    log_warning() { echo "[WARNING] $*"; }
-    log_error() { echo "[ERROR] $*" >&2; }
-fi
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../../utils/common.sh"
+
+detect_os
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
 
 # Get the absolute path of the dotfiles directory
-DOTFILES_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
-MCP_SERVER_DIR="${DOTFILES_DIR}/ai-tools/mcp-servers/tmux"
+DOTFILES_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+MCP_SERVER_DIR="${SCRIPT_DIR}"
 
 log_info "Installing Tmux MCP Server for Claude CLI integration..."
 

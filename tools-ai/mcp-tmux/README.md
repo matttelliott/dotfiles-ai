@@ -61,7 +61,7 @@ Run the installation script from the dotfiles-ai repository:
 
 ```bash
 # From dotfiles-ai root directory
-./mcp-servers/tmux/install
+./tools-ai/mcp-tmux/setup.sh
 ```
 
 This will:
@@ -75,7 +75,7 @@ This will:
 
 1. **Make server executable**:
    ```bash
-   chmod +x /path/to/dotfiles-ai/mcp-servers/tmux/server.js
+   chmod +x /path/to/dotfiles-ai/tools-ai/mcp-tmux/server.js
    ```
 
 2. **Configure Claude CLI**:
@@ -86,7 +86,7 @@ This will:
      "mcpServers": {
        "tmux": {
          "command": "node",
-         "args": ["/path/to/dotfiles-ai/mcp-servers/tmux/server.js"],
+         "args": ["/path/to/dotfiles-ai/tools-ai/mcp-tmux/server.js"],
          "env": {
            "NODE_ENV": "production"
          }
@@ -301,7 +301,7 @@ chmod +x /path/to/dotfiles-ai/mcp-servers/tmux/server.js
 
 Run the test script to verify everything is working:
 ```bash
-./mcp-servers/tmux/test-server.js
+./tools-ai/mcp-tmux/test-server.js
 ```
 
 This will test basic functionality and report any issues.
@@ -310,7 +310,7 @@ This will test basic functionality and report any issues.
 
 To debug the MCP server, you can run it manually:
 ```bash
-cd /path/to/dotfiles-ai/mcp-servers/tmux
+cd /path/to/dotfiles-ai/tools-ai/mcp-tmux
 node server.js
 ```
 
@@ -323,7 +323,7 @@ Then send JSON-RPC messages to test specific functionality.
 The MCP server is configured through the Claude CLI configuration file. The default configuration should work for most users, but you can customize:
 
 - **Environment variables**: Add custom environment variables to the `env` section
-- **Working directory**: The server runs from the mcp-servers/tmux directory
+- **Working directory**: The server runs from the tools-ai/mcp-tmux directory
 - **Node.js options**: Modify the `args` array to pass Node.js flags
 
 ### Tmux Configuration

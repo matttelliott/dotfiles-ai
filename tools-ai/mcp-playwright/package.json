@@ -1,0 +1,31 @@
+{
+  "name": "mcp-playwright",
+  "version": "1.0.0",
+  "description": "Playwright MCP server for Claude Desktop and CLI browser automation",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-server.js",
+    "info": "node server.js --info",
+    "install-browsers": "npx playwright install",
+    "install-deps": "npx playwright install-deps"
+  },
+  "keywords": [
+    "playwright",
+    "mcp",
+    "claude",
+    "browser",
+    "automation",
+    "testing",
+    "scraping"
+  ],
+  "author": "dotfiles-ai",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "devDependencies": {}
+}

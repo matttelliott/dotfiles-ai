@@ -1,11 +1,29 @@
 # AI Model Configurations
 
-Centralized configuration for various AI models and providers.
+Centralized configuration management for various AI models and providers. This tool provides a standardized way to configure and manage different LLM providers across your development environment.
+
+## Installation
+
+Run the setup script from the dotfiles-ai repository:
+
+```bash
+# From dotfiles-ai root directory
+./tools-ai/model-configs/setup.sh
+```
+
+This will:
+- Install required dependencies (jq)
+- Set up configuration directory structure
+- Create symlinks to model configurations
+- Add environment variables and aliases to your shell
+- Create helper scripts for model management
 
 ## 📁 Structure
 
 ```
-models/
+tools-ai/model-configs/
+├── setup.sh          # Installation script
+├── README.md          # This file
 ├── claude/           # Anthropic Claude configurations
 ├── openai/          # OpenAI GPT configurations
 ├── ollama/          # Local Ollama models
@@ -30,13 +48,13 @@ Each model provider directory contains:
 
 ```bash
 # Create local API keys file (gitignored)
-cat > models/openai/api-keys.env << EOF
+cat > ~/.config/ai-models/openai-api-keys.env << EOF
 OPENAI_API_KEY=sk-...
 OPENAI_ORG_ID=org-...
 EOF
 
 # For Claude
-cat > models/claude/api-keys.env << EOF
+cat > ~/.config/ai-models/claude-api-keys.env << EOF
 ANTHROPIC_API_KEY=sk-ant-...
 EOF
 ```
@@ -71,7 +89,7 @@ EOF
 
 ## 📝 Example Configuration
 
-### models/claude/config.json
+### ~/.config/ai-models/claude-config.json
 ```json
 {
   "provider": "anthropic",
@@ -89,7 +107,7 @@ EOF
 }
 ```
 
-### models/ollama/config.json
+### ~/.config/ai-models/ollama-config.json
 ```json
 {
   "provider": "ollama",
@@ -107,8 +125,8 @@ EOF
 ### With Scripts
 ```bash
 # Load configuration
-source ai-tools/models/claude/api-keys.env
-CONFIG=$(cat ai-tools/models/claude/config.json)
+source ~/.config/ai-models/claude-api-keys.env
+CONFIG=$(cat ~/.config/ai-models/claude-config.json)
 
 # Use in API calls
 curl https://api.anthropic.com/v1/messages \
@@ -124,13 +142,13 @@ import os
 from pathlib import Path
 
 # Load model configuration
-config_path = Path.home() / "dotfiles-ai/ai-tools/models/claude/config.json"
+config_path = Path.home() / ".config/ai-models/claude-config.json"
 with open(config_path) as f:
     config = json.load(f)
 
 # Load API keys
 from dotenv import load_dotenv
-load_dotenv(config_path.parent / "api-keys.env")
+load_dotenv(Path.home() / ".config/ai-models/claude-api-keys.env")
 
 # Use configuration
 api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -139,16 +157,46 @@ model = config["default_model"]
 
 ## 🔄 Model Switching
 
-The configuration supports easy model switching:
+After installation, you can use the provided tools for model management:
 
 ```bash
-# Set default model
-export AI_DEFAULT_PROVIDER="claude"
-export AI_DEFAULT_MODEL="claude-3-opus-20240229"
+# List available providers
+ai-model-select
 
-# Override for specific tasks
-export AI_CODING_MODEL="claude-3-sonnet-20240229"
-export AI_WRITING_MODEL="gpt-4-turbo-preview"
+# List models for a specific provider
+ai-model-select claude
+
+# Set default model for a provider
+ai-model-select claude claude-3-opus-20240229
+ai-model-select openai gpt-4
+
+# View current configurations
+ai-config-claude
+ai-config-openai
+ai-config-ollama
+
+# List all configuration files
+ai-config-list
+```
+
+### Environment Variables
+
+The installation sets up these environment variables:
+
+```bash
+# Configuration directory
+export AI_MODELS_CONFIG_DIR="$HOME/.config/ai-models"
+
+# Default provider and models
+export DEFAULT_AI_PROVIDER="claude"
+export DEFAULT_CLAUDE_MODEL="claude-3-sonnet-20240229"
+export DEFAULT_OPENAI_MODEL="gpt-4"
+export DEFAULT_OLLAMA_MODEL="llama2"
+
+# API endpoints
+export ANTHROPIC_API_URL="https://api.anthropic.com/v1"
+export OPENAI_API_URL="https://api.openai.com/v1"
+export OLLAMA_HOST="http://localhost:11434"
 ```
 
 ## 📊 Model Comparison

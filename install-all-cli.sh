@@ -65,6 +65,7 @@ main() {
     echo "Core Tools:"
     echo "  • zsh - Z shell"
     echo "  • tmux - Terminal multiplexer"
+    echo "  • tmux-mcp - Tmux MCP server for Claude integration"
     echo "  • neovim - Text editor"
     echo "  • fzf - Fuzzy finder"
     echo "  • prompt - Starship prompt"
@@ -134,6 +135,7 @@ main() {
     # Core tools (install first as others may depend on them)
     install_tool "tools-cli" "zsh"
     install_tool "tools-cli" "tmux"
+    install_tool "tools-cli" "tmux-mcp"
     install_tool "tools-cli" "neovim"
     install_tool "tools-cli" "fzf"
     install_tool "tools-cli" "jq"

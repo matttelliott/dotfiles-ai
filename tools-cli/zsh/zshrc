@@ -206,11 +206,11 @@ if command -v tmux &> /dev/null && [ -n "$PS1" ] && [[ ! "$TERM" =~ screen ]] &&
     if tmux list-sessions &> /dev/null; then
         # Attach to the first available session
         echo "🔗 Connecting to existing tmux session..."
-        exec tmux attach-session
+        tmux attach-session
     else
         # Create a new tmux session
         echo "🚀 Starting new tmux session..."
-        exec tmux new-session
+        tmux new-session
     fi
 fi
 
@@ -965,7 +965,7 @@ awssso() {
 }
 
 # EC2
-alias ec2ls="aws ec2 describe-instances --output table --query 'Reservations[].Instances[].{ID:InstanceId,Type:InstanceType,State:State.Name,Name:Tags[?Key==`Name`]|[0].Value}'"
+alias ec2ls="aws ec2 describe-instances --output table --query 'Reservations[].Instances[].{ID:InstanceId,Type:InstanceType,State:State.Name,Name:Tags[?Key==\`Name\`]|[0].Value}'"
 alias ec2running="aws ec2 describe-instances --filters Name=instance-state-name,Values=running --output table"
 alias ec2stop="aws ec2 stop-instances --instance-ids"
 alias ec2start="aws ec2 start-instances --instance-ids"
@@ -1509,7 +1509,7 @@ alias mem="top -o mem"
 alias disk="ncdu /"
 alias net="sudo nethogs"
 alias io="sudo iotop"
-alias bandwidth="bmon"
+alias bwmonitor="bmon"
 
 # Process management
 alias psg="ps aux | grep -v grep | grep"
@@ -2154,3 +2154,12 @@ alias irb="irb --simple-prompt"
 
 # Tmux MCP server aliases
 source /home/matt/dotfiles-ai/ai-tools/mcp-servers/tmux/aliases.zsh
+
+# Tmux MCP integration
+[[ -f "/home/matt/dotfiles-ai/tools-cli/tmux-mcp/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-cli/tmux-mcp/aliases.sh"
+
+# Tmux MCP server aliases
+source /home/matt/dotfiles-ai/tools-ai/mcp-tmux/aliases.zsh
+
+# Neovim MCP integration
+[[ -f "/home/matt/dotfiles-ai/tools-ai/mcp-neovim/aliases.sh" ]] && source "/home/matt/dotfiles-ai/tools-ai/mcp-neovim/aliases.sh"

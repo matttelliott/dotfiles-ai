@@ -8,6 +8,7 @@ A comprehensive, modular dotfiles configuration repository for developer tools a
 - **Programming languages** - Node.js, Python, Rust, Go, Ruby with version managers
 - **Cloud tools** - AWS CLI, Google Cloud SDK, Terraform, Kubernetes tools
 - **Development tools** - Docker, Git enhancements, database clients, and more
+- **AI/MCP integration** - Claude Desktop/CLI integration via Model Context Protocol servers
 - **Modular architecture** - Each tool is self-contained with its own installer
 - **Cross-platform** - Supports macOS and Debian-based Linux distributions
 - **Idempotent** - Safe to re-run installers multiple times
@@ -43,8 +44,13 @@ Install specific categories or tools:
 ./install cli            # All CLI tools
 ./install gui            # All GUI applications  
 ./install lang           # All programming languages
+./install ai             # All AI/MCP tools
 ./install neovim         # Just Neovim
 ./install docker k9s     # Multiple specific tools
+
+# Or use the dedicated installers:
+./install-all-cli.sh     # Install all CLI tools
+./install-all-ai.sh      # Install all AI/MCP tools
 ```
 
 ### Manual Symlink Management
@@ -114,18 +120,23 @@ The repository includes configurations for:
 ```
 dotfiles-ai/
 ├── install                 # Main installer script
+├── install-all-cli.sh      # Install all CLI tools
+├── install-all-ai.sh       # Install all AI/MCP tools
 ├── system/
 │   ├── macos/             # macOS-specific setup
 │   └── debian/            # Debian/Ubuntu setup
 ├── tools-cli/             # CLI tool modules
 │   └── neovim/            # Example tool structure
-│       ├── install        # Installation script
+│       ├── setup.sh       # Installation script
 │       ├── .config/       # Stow-managed configs
 │       │   └── nvim/
 │       │       └── init.lua
 │       └── README.md      # Documentation
 ├── tools-gui/             # GUI applications
-└── tools-lang/            # Programming languages
+├── tools-lang/            # Programming languages
+└── tools-ai/              # AI and MCP tools
+    ├── mcp-tmux/          # Tmux MCP server for Claude
+    └── model-configs/     # AI model configurations
 ```
 
 ### How It Works

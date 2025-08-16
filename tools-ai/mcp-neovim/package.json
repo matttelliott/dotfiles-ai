@@ -1,0 +1,25 @@
+{
+  "name": "mcp-neovim",
+  "version": "1.0.0",
+  "description": "Neovim MCP server for Claude Desktop and CLI integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-server.js",
+    "info": "node server.js --info"
+  },
+  "keywords": [
+    "neovim",
+    "mcp",
+    "claude",
+    "editor",
+    "vim"
+  ],
+  "author": "dotfiles-ai",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

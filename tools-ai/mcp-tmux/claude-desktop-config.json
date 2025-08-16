@@ -2,7 +2,7 @@
   "mcpServers": {
     "tmux": {
       "command": "node",
-      "args": ["{{DOTFILES_PATH}}/mcp-servers/tmux/server.js"],
+      "args": ["{{DOTFILES_PATH}}/tools-ai/mcp-tmux/server.js"],
       "env": {
         "NODE_ENV": "production"
       }
