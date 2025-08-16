@@ -524,14 +524,10 @@ main() {
     
     install_vscode
     
-    # Ask about extensions
+    # Install extensions automatically if code is available
     if command -v code &> /dev/null; then
-        echo
-        read -p "Install recommended VS Code extensions? (y/n): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            install_vscode_extensions
-        fi
+        log_info "Installing recommended VS Code extensions..."
+        install_vscode_extensions
     fi
     
     setup_vscode_settings

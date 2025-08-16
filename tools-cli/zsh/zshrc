@@ -1,0 +1,1169 @@
+
+# 1PASSWORD_INTEGRATION
+# 1Password CLI integration
+export OP_BIOMETRIC_UNLOCK_ENABLED=true
+export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"
+
+# 1Password CLI aliases
+alias ops='eval $(op signin)'
+alias opget='op item get'
+alias oplist='op item list'
+alias opssh='op ssh'
+
+# Function to get credentials from 1Password
+op-get-password() {
+    if [ -z "$1" ]; then
+        echo "Usage: op-get-password <item-name>"
+        return 1
+    fi
+    op item get "$1" --fields password
+}
+
+# Function to generate and add SSH key to 1Password
+op-add-ssh-key() {
+    if [ -z "$1" ]; then
+        echo "Usage: op-add-ssh-key <key-name>"
+        echo "This will generate a new SSH key and store it in 1Password"
+        return 1
+    fi
+    op ssh generate --title "$1"
+}
+
+# Function to list SSH keys in 1Password
+op-list-ssh-keys() {
+    op item list --categories "SSH Key"
+}
+
+# AWS CLI completion
+autoload bashcompinit && bashcompinit
+complete -C '/usr/local/bin/aws_completer' aws
+
+# AWS aliases
+alias awsw="aws sts get-caller-identity"  # whoami
+alias awsp="aws configure list-profiles"  # list profiles
+alias awsr="aws configure get region"     # current region
+
+# Profile switching
+awsprofile() {
+    export AWS_PROFILE="$1"
+    echo "Switched to AWS profile: $1"
+    aws sts get-caller-identity
+}
+
+# SSO login helper
+awssso() {
+    aws sso login --profile "${1:-default}"
+}
+
+# EC2
+alias ec2ls="aws ec2 describe-instances --output table --query 'Reservations[].Instances[].{ID:InstanceId,Type:InstanceType,State:State.Name,Name:Tags[?Key==`Name`]|[0].Value}'"
+alias ec2running="aws ec2 describe-instances --filters Name=instance-state-name,Values=running --output table"
+alias ec2stop="aws ec2 stop-instances --instance-ids"
+alias ec2start="aws ec2 start-instances --instance-ids"
+alias ec2terminate="aws ec2 terminate-instances --instance-ids"
+
+# S3
+alias s3ls="aws s3 ls"
+alias s3mb="aws s3 mb"  # make bucket
+alias s3rb="aws s3 rb"  # remove bucket
+alias s3cp="aws s3 cp"
+alias s3mv="aws s3 mv"
+alias s3rm="aws s3 rm"
+alias s3sync="aws s3 sync"
+
+# Lambda
+alias lambdals="aws lambda list-functions --output table"
+alias lambdainvoke="aws lambda invoke"
+alias lambdalogs="aws logs tail --follow"
+
+# CloudFormation
+alias cfnls="aws cloudformation list-stacks --output table"
+alias cfndescribe="aws cloudformation describe-stacks"
+alias cfnevents="aws cloudformation describe-stack-events"
+alias cfndelete="aws cloudformation delete-stack"
+
+# CloudWatch Logs
+alias cwlogs="aws logs tail"
+alias cwlogsf="aws logs tail --follow"
+alias cwgroups="aws logs describe-log-groups --output table"
+
+# ECS
+alias ecsls="aws ecs list-clusters"
+alias ecsservices="aws ecs list-services"
+alias ecstasks="aws ecs list-tasks"
+
+# RDS
+alias rdsls="aws rds describe-db-instances --output table"
+
+# DynamoDB
+alias ddbls="aws dynamodb list-tables"
+alias ddbdescribe="aws dynamodb describe-table"
+
+# IAM
+alias iamusers="aws iam list-users --output table"
+alias iamroles="aws iam list-roles --output table"
+alias iampolicies="aws iam list-policies --scope Local --output table"
+
+# Cost Explorer
+awscost() {
+    aws ce get-cost-and-usage \
+        --time-period Start=$(date -u -d '30 days ago' '+%Y-%m-%d'),End=$(date -u '+%Y-%m-%d') \
+        --granularity MONTHLY \
+        --metrics UnblendedCost \
+        --group-by Type=DIMENSION,Key=SERVICE \
+        --output table
+}
+
+# Get AWS account ID
+awsaccount() {
+    aws sts get-caller-identity --query Account --output text
+}
+
+# List all resources in a region
+awsresources() {
+    aws resourcegroupstaggingapi get-resources --region "${1:-us-east-1}"
+}
+
+# AWS Vault shortcuts
+alias av="aws-vault"
+alias ave="aws-vault exec"
+alias avl="aws-vault list"
+alias avs="aws-vault login"
+
+# SAM shortcuts
+alias sami="sam init"
+alias samb="sam build"
+alias samd="sam deploy"
+alias saml="sam local start-api"
+alias samlog="sam logs"
+
+# EKS shortcuts
+alias eksls="eksctl get clusters"
+alias eksnodes="kubectl get nodes"
+
+
+# bat configuration
+export BAT_CONFIG_PATH="$HOME/.config/bat/config"
+
+# bat aliases
+alias cat="bat"
+alias catp="bat -p"           # plain output (no line numbers)
+alias catl="bat -l"           # specify language
+alias catn="bat --style=numbers"  # only line numbers
+alias batdiff="bat --diff"    # show diff
+alias batman="bat --language=man"  # syntax highlight man pages
+
+# Use bat as manpager
+export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+
+# bat + fzf integration
+alias batf="fzf --preview 'bat --color=always --style=numbers --line-range=:500 {}'"
+
+
+# Add ~/.local/bin to PATH if it exists
+if [ -d "$HOME/.local/bin" ] ; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# direnv hook
+eval "$(direnv hook zsh)"
+
+# direnv aliases
+alias da="direnv allow"
+alias db="direnv block"
+alias dr="direnv reload"
+alias de="direnv edit"
+alias ds="direnv status"
+alias dp="direnv prune"
+
+# direnv helper functions
+direnv-init() {
+    # Initialize .envrc in current directory
+    if [[ -f .envrc ]]; then
+        echo ".envrc already exists"
+        return 1
+    fi
+    
+    echo "# direnv configuration" > .envrc
+    echo "# https://direnv.net/man/direnv-stdlib.1.html" >> .envrc
+    echo "" >> .envrc
+    echo "# Load .env file if it exists" >> .envrc
+    echo "dotenv_if_exists" >> .envrc
+    echo "" >> .envrc
+    echo "# Project-specific configuration" >> .envrc
+    echo "export PROJECT_NAME=\"$(basename $PWD)\"" >> .envrc
+    
+    direnv allow
+    echo "Created and allowed .envrc"
+}
+
+direnv-python() {
+    # Create Python layout
+    echo "layout python" >> .envrc
+    direnv allow
+}
+
+direnv-node() {
+    # Create Node.js layout
+    echo "layout node" >> .envrc
+    direnv allow
+}
+
+direnv-go() {
+    # Create Go layout
+    echo "layout go" >> .envrc
+    direnv allow
+}
+
+direnv-docker() {
+    # Setup Docker environment
+    cat >> .envrc << 'ENVRC'
+# Docker environment
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+export COMPOSE_PROJECT_NAME="$(basename $PWD)"
+ENVRC
+    direnv allow
+}
+
+direnv-aws() {
+    # Setup AWS profile
+    local profile="${1:-default}"
+    echo "use_aws $profile" >> .envrc
+    direnv allow
+}
+
+direnv-secrets() {
+    # Create .env template for secrets
+    if [[ ! -f .env ]]; then
+        cat > .env << 'ENV'
+# Environment variables
+# Copy to .env.local and fill in values
+
+DATABASE_URL=postgresql://user:pass@localhost/dbname
+REDIS_URL=redis://localhost:6379
+SECRET_KEY=change-me
+API_KEY=
+ENV
+        echo "Created .env template"
+    fi
+    
+    if [[ ! -f .env.local ]]; then
+        cp .env .env.local
+        echo "Created .env.local - add your secrets here"
+    fi
+    
+    echo "dotenv_if_exists .env.local" >> .envrc
+    echo ".env.local" >> .gitignore
+    direnv allow
+}
+
+direnv-clean() {
+    # Clean direnv cache
+    rm -rf .direnv
+    direnv reload
+    echo "Cleaned direnv cache"
+}
+
+direnv-debug() {
+    # Debug current environment
+    direnv status
+    echo ""
+    echo "Loaded variables:"
+    direnv export bash | jq -r 'keys[]'
+}
+
+
+# Docker aliases
+alias d="docker"
+alias dc="docker compose"
+alias dps="docker ps"
+alias dpsa="docker ps -a"
+alias di="docker images"
+alias dex="docker exec -it"
+alias dl="docker logs"
+alias dlf="docker logs -f"
+alias dstop="docker stop"
+alias dstart="docker start"
+alias drm="docker rm"
+alias drmi="docker rmi"
+alias dprune="docker system prune -a"
+alias dvol="docker volume ls"
+alias dnet="docker network ls"
+
+# Docker Compose aliases
+alias dcu="docker compose up"
+alias dcud="docker compose up -d"
+alias dcd="docker compose down"
+alias dcl="docker compose logs"
+alias dclf="docker compose logs -f"
+alias dcps="docker compose ps"
+alias dcr="docker compose restart"
+alias dcb="docker compose build"
+alias dce="docker compose exec"
+
+# Docker functions
+dsh() {
+    # Shell into container
+    docker exec -it "$1" /bin/bash 2>/dev/null || docker exec -it "$1" /bin/sh
+}
+
+dclean() {
+    # Clean up everything
+    docker stop $(docker ps -aq) 2>/dev/null || true
+    docker rm $(docker ps -aq) 2>/dev/null || true
+    docker rmi $(docker images -q) 2>/dev/null || true
+    docker volume prune -f
+    docker network prune -f
+}
+
+dbuild() {
+    # Build with cache options
+    docker build --no-cache -t "$1" .
+}
+
+# Colima aliases (macOS)
+if command -v colima &> /dev/null; then
+    alias cols="colima start"
+    alias colst="colima stop"
+    alias colstat="colima status"
+    alias colr="colima restart"
+fi
+
+# Container tools
+alias lzd="lazydocker"
+
+
+# File watcher aliases and functions
+
+# Basic entr usage
+alias watch="entr"
+alias watchr="entr -r"  # Restart mode
+alias watchc="entr -c"  # Clear screen
+alias watchp="entr -p"  # Postpone first execution
+
+# Common watch patterns
+watch-run() {
+    # Watch files and run command
+    # Usage: watch-run "*.js" "npm test"
+    local pattern="$1"
+    shift
+    find . -name "$pattern" | entr -c "$@"
+}
+
+watch-test() {
+    # Watch and run tests
+    local pattern="${1:-*.test.*}"
+    shift
+    find . -name "$pattern" | entr -c "${@:-npm test}"
+}
+
+watch-build() {
+    # Watch and rebuild
+    find . -name "*.go" -o -name "*.js" -o -name "*.ts" -o -name "*.rs" | entr -c make build
+}
+
+watch-python() {
+    # Watch Python files and run
+    find . -name "*.py" | entr -rc python "${1:-main.py}"
+}
+
+watch-node() {
+    # Watch JS/TS files and restart node
+    find . -name "*.js" -o -name "*.ts" | entr -rc node "${1:-index.js}"
+}
+
+watch-go() {
+    # Watch Go files and run
+    find . -name "*.go" | entr -rc go run "${1:-.}"
+}
+
+watch-rust() {
+    # Watch Rust files and run
+    find . -name "*.rs" -o -name "Cargo.toml" | entr -rc cargo run
+}
+
+watch-make() {
+    # Watch and run make
+    find . -type f -not -path "*/\.*" | entr -c make "${1:-all}"
+}
+
+watch-docker() {
+    # Watch Dockerfile and rebuild
+    echo Dockerfile | entr -c docker build -t "${1:-app}" .
+}
+
+watch-compose() {
+    # Watch docker-compose and restart
+    find . -name "docker-compose*.yml" -o -name "Dockerfile" | entr -rc docker-compose up
+}
+
+watch-reload() {
+    # Watch and reload browser (requires browser-sync)
+    if command -v browser-sync &> /dev/null; then
+        browser-sync start --server --files "$1"
+    else
+        echo "browser-sync not installed"
+    fi
+}
+
+watch-sass() {
+    # Watch SASS/SCSS files
+    find . -name "*.scss" -o -name "*.sass" | entr -c sass "${1:-styles.scss}" "${2:-styles.css}"
+}
+
+watch-typescript() {
+    # Watch TypeScript files
+    find . -name "*.ts" -o -name "*.tsx" | entr -c tsc
+}
+
+watch-eslint() {
+    # Watch and lint JavaScript
+    find . -name "*.js" -o -name "*.jsx" | entr -c eslint .
+}
+
+watch-prettier() {
+    # Watch and format
+    find . -name "*.js" -o -name "*.ts" -o -name "*.json" | entr -c prettier --write .
+}
+
+watch-pytest() {
+    # Watch and run pytest
+    find . -name "*.py" | entr -c pytest "${@:--v}"
+}
+
+watch-rspec() {
+    # Watch and run RSpec
+    find . -name "*.rb" | entr -c rspec "${@}"
+}
+
+watch-cargo() {
+    # Watch and run cargo commands
+    find . -name "*.rs" -o -name "Cargo.toml" | entr -c cargo "${@:-test}"
+}
+
+watch-git() {
+    # Watch files and show git status
+    find . -type f -not -path "./.git/*" | entr -c git status
+}
+
+watch-sync() {
+    # Watch and sync to remote
+    find . -type f -not -path "./.git/*" | entr -c rsync -av . "${1:-user@host:/path}"
+}
+
+watch-notify() {
+    # Watch and send notification
+    # Requires terminal-notifier on macOS or notify-send on Linux
+    local pattern="$1"
+    local message="${2:-Files changed}"
+    
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v terminal-notifier &> /dev/null; then
+        find . -name "$pattern" | entr terminal-notifier -message "$message"
+    elif command -v notify-send &> /dev/null; then
+        find . -name "$pattern" | entr notify-send "File Watcher" "$message"
+    else
+        find . -name "$pattern" | entr echo "$message"
+    fi
+}
+
+# Advanced watch with multiple commands
+watch-chain() {
+    # Run multiple commands on file change
+    # Usage: watch-chain "*.js" "eslint ." "npm test" "npm build"
+    local pattern="$1"
+    shift
+    local commands="$@"
+    find . -name "$pattern" | entr -c sh -c "$commands"
+}
+
+# Watch with debounce (using sleep)
+watch-debounce() {
+    # Watch with debounce delay
+    local delay="${1:-1}"
+    local pattern="$2"
+    shift 2
+    find . -name "$pattern" | entr -c sh -c "sleep $delay && $@"
+}
+
+# Interactive file watcher menu
+watch-menu() {
+    echo "Select watch mode:"
+    echo "1) Watch and run tests"
+    echo "2) Watch and build"
+    echo "3) Watch and lint"
+    echo "4) Watch and restart server"
+    echo "5) Custom command"
+    
+    read -p "Choice: " choice
+    
+    case $choice in
+        1) watch-test ;;
+        2) watch-build ;;
+        3) watch-eslint ;;
+        4) watch-node ;;
+        5) 
+            read -p "Pattern: " pattern
+            read -p "Command: " cmd
+            find . -name "$pattern" | entr -c $cmd
+            ;;
+        *) echo "Invalid choice" ;;
+    esac
+}
+
+# fswatch aliases (if available)
+if command -v fswatch &> /dev/null; then
+    fswatch-run() {
+        # Watch directory with fswatch
+        fswatch -o "${1:-.}" | xargs -n1 -I{} "${@:2}"
+    }
+    
+    fswatch-recursive() {
+        # Recursive watch
+        fswatch -r "${1:-.}" | xargs -n1 -I{} echo "Changed: {}"
+    }
+fi
+
+# Watchman aliases (if available)
+if command -v watchman &> /dev/null; then
+    watchman-init() {
+        # Initialize watchman for current directory
+        watchman watch .
+    }
+    
+    watchman-trigger() {
+        # Create watchman trigger
+        local name="$1"
+        local pattern="$2"
+        shift 2
+        watchman -- trigger . "$name" "$pattern" -- "$@"
+    }
+fi
+
+
+# eza - modern ls replacement
+alias ls="eza --icons --group-directories-first"
+alias ll="eza --icons --group-directories-first -l"
+alias la="eza --icons --group-directories-first -la"
+alias lt="eza --icons --group-directories-first --tree"
+alias l="eza --icons --group-directories-first -la"
+
+# eza specific aliases
+alias ld="eza -lD"                    # directories only
+alias lf="eza -lf --color=always | grep -v /"  # files only
+alias lh="eza -dl .* --group-directories-first"  # hidden files
+alias ll="eza -al --group-directories-first"     # all files, long format
+alias ls="eza -a --group-directories-first"      # all files
+alias lt="eza --tree --level=2"       # tree view, 2 levels
+alias lx="eza -lbhHgmuSa"            # extended details
+alias lz="eza -la --sort=size"       # sort by size
+alias lt="eza -la --sort=modified"   # sort by modification time
+
+# Git-aware aliases
+alias lg="eza -la --git --git-ignore" # show git status
+alias ltg="eza --tree --git-ignore"   # tree respecting gitignore
+
+
+# fd aliases
+alias fdd='fd --type d'      # directories only
+alias fdf='fd --type f'      # files only
+alias fdh='fd --hidden'      # include hidden files
+alias fde='fd --extension'   # search by extension
+alias fdi='fd --ignore-case' # case insensitive
+alias fdx='fd --type x'      # executable files
+alias fds='fd --size'        # filter by size
+
+
+# fzf configuration
+[ -f ~/.config/fzf/fzf.zsh ] && source ~/.config/fzf/fzf.zsh
+
+# Google Cloud SDK
+if [ -f '/home/matt/google-cloud-sdk/path.bash.inc' ]; then . '/home/matt/google-cloud-sdk/path.bash.inc'; fi
+if [ -f '/home/matt/google-cloud-sdk/completion.bash.inc' ]; then . '/home/matt/google-cloud-sdk/completion.bash.inc'; fi
+
+# Google Cloud aliases
+alias gc="gcloud"
+alias gcl="gcloud config list"
+alias gcp="gcloud config set project"
+alias gcauth="gcloud auth login"
+alias gcconf="gcloud config configurations"
+
+# Compute Engine
+alias gce="gcloud compute"
+alias gcels="gcloud compute instances list"
+alias gcestart="gcloud compute instances start"
+alias gcestop="gcloud compute instances stop"
+alias gcessh="gcloud compute ssh"
+alias gcedisks="gcloud compute disks list"
+
+# Container/Kubernetes
+alias gke="gcloud container"
+alias gkels="gcloud container clusters list"
+alias gkeget="gcloud container clusters get-credentials"
+
+# Cloud Storage
+alias gcs="gsutil"
+alias gcsls="gsutil ls"
+alias gcscp="gsutil cp"
+alias gcsmv="gsutil mv"
+alias gcsrm="gsutil rm"
+alias gcsrsync="gsutil rsync"
+alias gcsmb="gsutil mb"  # make bucket
+alias gcsrb="gsutil rb"  # remove bucket
+
+# Cloud Functions
+alias gcf="gcloud functions"
+alias gcfls="gcloud functions list"
+alias gcfdeploy="gcloud functions deploy"
+alias gcflogs="gcloud functions logs read"
+
+# Cloud Run
+alias gcr="gcloud run"
+alias gcrls="gcloud run services list"
+alias gcrdeploy="gcloud run deploy"
+
+# App Engine
+alias gae="gcloud app"
+alias gaedeploy="gcloud app deploy"
+alias gaelogs="gcloud app logs tail"
+alias gaebrowse="gcloud app browse"
+
+# BigQuery
+alias bq="bq"
+alias bqls="bq ls"
+alias bqquery="bq query"
+
+# Pub/Sub
+alias gpub="gcloud pubsub"
+alias gpubtopics="gcloud pubsub topics list"
+alias gpubsubs="gcloud pubsub subscriptions list"
+
+# IAM
+alias giam="gcloud iam"
+alias giamls="gcloud iam service-accounts list"
+alias giamroles="gcloud iam roles list"
+
+# Projects
+alias gprojects="gcloud projects list"
+alias gproject="gcloud config get-value project"
+
+# Billing
+alias gbilling="gcloud billing"
+alias gbillingls="gcloud billing accounts list"
+
+# Functions
+gcpset() {
+    # Set project
+    gcloud config set project "$1"
+    echo "Project set to: $1"
+}
+
+gcpactivate() {
+    # Activate service account
+    gcloud auth activate-service-account --key-file="$1"
+}
+
+gceconnect() {
+    # SSH to instance
+    gcloud compute ssh "$1" --zone="${2:-us-central1-a}"
+}
+
+gcetunnel() {
+    # Create SSH tunnel
+    local instance="$1"
+    local port="${2:-8080}"
+    gcloud compute ssh "$instance" -- -L "$port:localhost:$port"
+}
+
+gkelogs() {
+    # Get GKE cluster logs
+    local cluster="$1"
+    gcloud container clusters get-credentials "$cluster"
+    kubectl logs -f "$2"
+}
+
+gcscopy() {
+    # Copy between buckets
+    gsutil -m cp -r "gs://$1/*" "gs://$2/"
+}
+
+gcssize() {
+    # Get bucket size
+    gsutil du -sh "gs://$1"
+}
+
+gcost() {
+    # Get cost estimate for current month
+    local project="${1:-$(gcloud config get-value project)}"
+    gcloud billing budgets list --billing-account="$(gcloud billing accounts list --format='value(name)' --limit=1)"
+}
+
+gservices() {
+    # List enabled services
+    gcloud services list --enabled
+}
+
+genable() {
+    # Enable API service
+    gcloud services enable "$1"
+}
+
+gdisable() {
+    # Disable API service
+    gcloud services disable "$1"
+}
+
+# Terraform shortcuts
+alias tf="terraform"
+alias tfi="terraform init"
+alias tfp="terraform plan"
+alias tfa="terraform apply"
+alias tfd="terraform destroy"
+alias tfv="terraform validate"
+alias tff="terraform fmt"
+
+# Cloud SQL Proxy
+sqlproxy() {
+    # Start Cloud SQL proxy
+    cloud-sql-proxy "$1" &
+}
+
+
+# htop aliases
+alias top="htop"
+alias htop-tree="htop -t"     # Tree view
+alias htop-user="htop -u $USER"  # Show only current user processes
+
+
+# HTTP tools aliases
+
+# HTTPie aliases
+alias GET="http GET"
+alias POST="http POST"
+alias PUT="http PUT"
+alias PATCH="http PATCH"
+alias DELETE="http DELETE"
+alias HEAD="http HEAD"
+
+# HTTPie shortcuts
+alias http-json="http --json"
+alias http-form="http --form"
+alias http-download="http --download"
+alias http-headers="http --headers"
+alias http-verbose="http --verbose"
+
+# curl aliases
+alias curl-json="curl -H 'Content-Type: application/json'"
+alias curl-post="curl -X POST"
+alias curl-put="curl -X PUT"
+alias curl-delete="curl -X DELETE"
+alias curl-headers="curl -I"
+alias curl-verbose="curl -v"
+alias curl-silent="curl -s"
+alias curl-download="curl -O"
+alias curl-follow="curl -L"
+alias curl-auth="curl -u"
+
+# Common API testing functions
+api-get() {
+    http GET "$@"
+}
+
+api-post() {
+    http POST "$@"
+}
+
+api-put() {
+    http PUT "$@"
+}
+
+api-delete() {
+    http DELETE "$@"
+}
+
+# JSON pretty print
+json-pretty() {
+    if command -v jq &> /dev/null; then
+        jq .
+    elif command -v python3 &> /dev/null; then
+        python3 -m json.tool
+    else
+        cat
+    fi
+}
+
+# Test API endpoint
+api-test() {
+    local url="${1:-http://localhost:8080}"
+    echo "Testing API at: $url"
+    echo "---"
+    echo "GET $url"
+    http --print=HhBb GET "$url" || curl -i "$url"
+}
+
+# Benchmark endpoint
+api-bench() {
+    local url="${1:-http://localhost:8080}"
+    local requests="${2:-100}"
+    local concurrency="${3:-10}"
+    
+    if command -v ab &> /dev/null; then
+        ab -n "$requests" -c "$concurrency" "$url"
+    elif command -v hey &> /dev/null; then
+        hey -n "$requests" -c "$concurrency" "$url"
+    else
+        echo "Install Apache Bench (ab) or hey for benchmarking"
+    fi
+}
+
+# Download with resume support
+download() {
+    local url="$1"
+    local output="${2:-$(basename "$url")}"
+    curl -L -C - -o "$output" "$url"
+}
+
+# Upload file
+upload() {
+    local file="$1"
+    local url="${2:-https://transfer.sh}"
+    
+    if [[ -f "$file" ]]; then
+        curl --upload-file "$file" "$url/$(basename "$file")"
+        echo
+    else
+        echo "File not found: $file"
+    fi
+}
+
+# Check HTTP status
+http-status() {
+    local url="$1"
+    curl -s -o /dev/null -w "%{http_code}\n" "$url"
+}
+
+# Time request
+http-time() {
+    local url="$1"
+    curl -w "@-" -o /dev/null -s "$url" << 'EOF'
+    time_namelookup:  %{time_namelookup}s
+    time_connect:     %{time_connect}s
+    time_appconnect:  %{time_appconnect}s
+    time_pretransfer: %{time_pretransfer}s
+    time_redirect:    %{time_redirect}s
+    time_starttransfer: %{time_starttransfer}s
+    ----------
+    time_total:       %{time_total}s
+EOF
+}
+
+# Test REST endpoints
+rest-test() {
+    local base="${1:-http://localhost:8080}"
+    echo "Testing REST endpoints at: $base"
+    echo "---"
+    echo "GET $base"
+    http GET "$base" 2>/dev/null || curl "$base"
+    echo "---"
+    echo "POST $base"
+    http POST "$base" test=data 2>/dev/null || curl -X POST "$base" -d '{"test":"data"}'
+}
+
+# GraphQL query
+graphql() {
+    local url="$1"
+    local query="$2"
+    
+    if [[ -z "$query" ]]; then
+        echo "Usage: graphql <url> <query>"
+        return 1
+    fi
+    
+    http POST "$url" Content-Type:application/json query="$query"
+}
+
+# WebSocket test
+ws-test() {
+    local url="$1"
+    
+    if command -v websocat &> /dev/null; then
+        websocat "$url"
+    elif command -v wscat &> /dev/null; then
+        wscat -c "$url"
+    else
+        echo "Install websocat or wscat for WebSocket testing"
+    fi
+}
+
+# Bearer token helper
+bearer() {
+    local token="$1"
+    shift
+    http "$@" "Authorization:Bearer $token"
+}
+
+# Basic auth helper
+basic-auth() {
+    local user="$1"
+    local pass="$2"
+    shift 2
+    http -a "$user:$pass" "$@"
+}
+
+
+# Kubernetes aliases
+alias k="kubectl"
+alias kx="kubectx"
+alias kn="kubens"
+
+# kubectl get
+alias kg="kubectl get"
+alias kgp="kubectl get pods"
+alias kgpa="kubectl get pods --all-namespaces"
+alias kgd="kubectl get deployments"
+alias kgs="kubectl get services"
+alias kgi="kubectl get ingress"
+alias kgn="kubectl get nodes"
+alias kgns="kubectl get namespaces"
+alias kgcm="kubectl get configmap"
+alias kgsec="kubectl get secret"
+alias kgpv="kubectl get pv"
+alias kgpvc="kubectl get pvc"
+
+# kubectl describe
+alias kd="kubectl describe"
+alias kdp="kubectl describe pod"
+alias kdd="kubectl describe deployment"
+alias kds="kubectl describe service"
+alias kdi="kubectl describe ingress"
+alias kdn="kubectl describe node"
+
+# kubectl apply/delete
+alias ka="kubectl apply -f"
+alias kaf="kubectl apply -f"
+alias kdel="kubectl delete"
+alias kdelf="kubectl delete -f"
+
+# kubectl logs
+alias kl="kubectl logs"
+alias klf="kubectl logs -f"
+alias klt="kubectl logs --tail"
+
+# kubectl exec
+alias kex="kubectl exec -it"
+alias kexsh="kubectl exec -it -- /bin/sh"
+alias kexbash="kubectl exec -it -- /bin/bash"
+
+# kubectl edit
+alias ke="kubectl edit"
+alias ked="kubectl edit deployment"
+alias kes="kubectl edit service"
+alias kecm="kubectl edit configmap"
+
+# kubectl scale
+alias ksc="kubectl scale"
+alias kscd="kubectl scale deployment"
+
+# kubectl port-forward
+alias kpf="kubectl port-forward"
+
+# kubectl top
+alias ktop="kubectl top"
+alias ktopp="kubectl top pods"
+alias ktopn="kubectl top nodes"
+
+# Helm aliases
+alias h="helm"
+alias hi="helm install"
+alias hu="helm upgrade"
+alias hd="helm delete"
+alias hl="helm list"
+alias hs="helm search"
+alias hr="helm repo"
+alias hru="helm repo update"
+
+# k9s
+alias k9="k9s"
+
+# Useful functions
+kpods() {
+    # Get pods with node info
+    kubectl get pods -o wide ${1:+--namespace=$1}
+}
+
+kexec() {
+    # Exec into first pod matching pattern
+    local pod=$(kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 "$1")
+    if [[ -n "$pod" ]]; then
+        kubectl exec -it "$pod" -- ${2:-/bin/bash}
+    else
+        echo "No pod found matching: $1"
+    fi
+}
+
+klogs() {
+    # Get logs from first pod matching pattern
+    local pod=$(kubectl get pods --no-headers -o custom-columns=":metadata.name" | grep -m1 "$1")
+    if [[ -n "$pod" ]]; then
+        kubectl logs -f "$pod"
+    else
+        echo "No pod found matching: $1"
+    fi
+}
+
+kcontext() {
+    # Switch context with fzf
+    kubectl config get-contexts -o name | fzf | xargs kubectl config use-context
+}
+
+knamespace() {
+    # Switch namespace with fzf
+    kubectl get namespaces -o name | cut -d/ -f2 | fzf | xargs kubectl config set-context --current --namespace=
+}
+
+
+# kubectl completion
+source <(kubectl completion zsh)
+compdef k=kubectl
+
+# lazygit aliases
+alias lg="lazygit"
+alias lzg="lazygit"
+alias lgit="lazygit"
+
+# Git + lazygit workflow
+alias gs="git status"
+alias gst="git status"
+alias gss="git status -s"
+
+
+# Monitoring aliases
+alias top="htop"  # Use htop instead of top
+alias h="htop"
+alias bt="btop"
+alias g="glances"
+alias nc="ncdu"
+alias df="duf"
+alias ps="procs"
+
+# System monitoring shortcuts
+alias cpu="top -o cpu"
+alias mem="top -o mem"
+alias disk="ncdu /"
+alias net="sudo nethogs"
+alias io="sudo iotop"
+alias bandwidth="bmon"
+
+# Process management
+alias psg="ps aux | grep -v grep | grep"
+alias kill9="kill -9"
+alias killall="pkill"
+
+# System information
+sysinfo() {
+    echo "=== System Information ==="
+    uname -a
+    echo
+    echo "=== CPU ==="
+    lscpu 2>/dev/null || sysctl -n machdep.cpu.brand_string
+    echo
+    echo "=== Memory ==="
+    free -h 2>/dev/null || vm_stat
+    echo
+    echo "=== Disk ==="
+    df -h
+    echo
+    echo "=== Network ==="
+    ip a 2>/dev/null || ifconfig
+}
+
+# Monitor specific process
+monitor() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: monitor <process_name>"
+        return 1
+    fi
+    watch -n 1 "ps aux | grep -v grep | grep $1"
+}
+
+# Show top memory consumers
+topmem() {
+    ps aux | sort -rk 4 | head -n "${1:-10}"
+}
+
+# Show top CPU consumers
+topcpu() {
+    ps aux | sort -rk 3 | head -n "${1:-10}"
+}
+
+# Show disk usage by directory
+diskusage() {
+    du -sh "${1:-.}"/* | sort -rh | head -n "${2:-20}"
+}
+
+# Show open ports
+ports() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo lsof -iTCP -sTCP:LISTEN -P
+    else
+        sudo netstat -tulpn
+    fi
+}
+
+# Show system load
+load() {
+    uptime
+    echo
+    if command -v nproc &> /dev/null; then
+        echo "CPU cores: $(nproc)"
+    else
+        echo "CPU cores: $(sysctl -n hw.ncpu)"
+    fi
+}
+
+# Temperature monitoring (if available)
+temp() {
+    if command -v sensors &> /dev/null; then
+        sensors
+    elif [[ "$OSTYPE" == "darwin"* ]] && command -v osx-cpu-temp &> /dev/null; then
+        osx-cpu-temp
+    else
+        echo "Temperature monitoring not available"
+    fi
+}
+
+# Network connections
+connections() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        netstat -an | grep ESTABLISHED
+    else
+        ss -tunap | grep ESTAB
+    fi
+}
+
+# Watch disk I/O
+watchio() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo fs_usage -w
+    else
+        sudo iotop
+    fi
+}
+
+# System health check
+health() {
+    echo "=== System Health Check ==="
+    echo
+    echo "Load Average:"
+    uptime
+    echo
+    echo "Memory Usage:"
+    free -h 2>/dev/null || vm_stat | head -5
+    echo
+    echo "Disk Usage:"
+    df -h | grep -E "^/dev/"
+    echo
+    echo "Top Processes:"
+    ps aux | sort -rk 3 | head -5
+}
+

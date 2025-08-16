@@ -152,6 +152,7 @@ main() {
         exit 0
     fi
     
+    
     detect_os
     log_info "Detected OS: $OS"
     
