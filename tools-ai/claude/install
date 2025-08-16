@@ -125,6 +125,12 @@ setup_claude_desktop() {
     # Create directory if it doesn't exist
     mkdir -p "$desktop_config_dir"
     
+    # Check if jq is installed
+    if ! command -v jq &>/dev/null; then
+        log_warning "jq not installed, skipping Claude Desktop config"
+        return 0
+    fi
+    
     # Extract just the mcpServers section from our settings.json
     local mcp_config=$(jq '.mcpServers' "$CLAUDE_DIR/.claude/settings.json")
     

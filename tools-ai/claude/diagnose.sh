@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "Claude Tools Diagnostic"
-echo "======================="
+echo "Claude Code Configuration Diagnostic"
+echo "===================================="
 echo ""
 
 # Check Node.js
@@ -12,28 +12,41 @@ else
     echo "  ✗ Not installed"
 fi
 
-# Check Claude CLI
+# Check Claude Code settings
 echo ""
-echo "Claude CLI:"
-if command -v claude &>/dev/null; then
-    echo "  ✓ Installed"
-    echo "  Config: ~/.config/claude-cli/config.json"
-    if [[ -f ~/.config/claude-cli/config.json ]]; then
-        echo "  ✓ Config exists"
-    else
-        echo "  ✗ Config missing"
+echo "Claude Code Settings:"
+if [[ -f ~/.claude/settings.json ]]; then
+    echo "  ✓ User settings exists"
+    if [[ -L ~/.claude/settings.json ]]; then
+        echo "    Symlinked to: $(readlink ~/.claude/settings.json)"
     fi
 else
-    echo "  ✗ Not installed"
+    echo "  ✗ User settings not found"
+fi
+
+# Check project settings
+if [[ -f .claude/settings.json ]]; then
+    echo "  ✓ Project settings exists"
+fi
+if [[ -f .claude/settings.local.json ]]; then
+    echo "  ✓ Project local settings exists"
+fi
+
+# Check CLAUDE.md
+if [[ -f CLAUDE.md ]]; then
+    echo "  ✓ CLAUDE.md exists ($(wc -l < CLAUDE.md) lines)"
 fi
 
 # Check Claude Desktop config
 echo ""
 echo "Claude Desktop:"
-if [[ -f ~/.config/claude/claude_desktop_config.json ]]; then
-    echo "  ✓ Config exists"
-elif [[ -f "$HOME/Library/Application Support/Claude/claude_desktop_config.json" ]]; then
+DESKTOP_CONFIG=""
+if [[ -f "$HOME/Library/Application Support/Claude/claude_desktop_config.json" ]]; then
+    DESKTOP_CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
     echo "  ✓ Config exists (macOS)"
+elif [[ -f "$HOME/.config/claude/claude_desktop_config.json" ]]; then
+    DESKTOP_CONFIG="$HOME/.config/claude/claude_desktop_config.json"
+    echo "  ✓ Config exists (Linux)"
 else
     echo "  ✗ Config not found"
 fi
@@ -41,8 +54,9 @@ fi
 # Check MCP servers
 echo ""
 echo "MCP Servers:"
+DOTFILES_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 for server in tmux neovim playwright; do
-    server_path="$(dirname "$0")/../mcp-$server/server.js"
+    server_path="$DOTFILES_DIR/tools-ai/mcp-$server/server.js"
     echo -n "  $server: "
     if [[ -f "$server_path" ]]; then
         echo -n "✓"
@@ -56,11 +70,6 @@ for server in tmux neovim playwright; do
     fi
 done
 
-# Check project MCP config
 echo ""
-echo "Project MCP config:"
-if [[ -f "$(dirname "$0")/../../.mcp.json" ]]; then
-    echo "  ✓ .mcp.json exists"
-else
-    echo "  ✗ .mcp.json missing"
-fi
+echo "Use 'claude config list' to see current settings"
+echo "Use 'claude config get <key>' to view specific settings"
