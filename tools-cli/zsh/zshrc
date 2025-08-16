@@ -2151,3 +2151,6 @@ alias gs="gem search"
 alias rb="ruby"
 alias irb="irb --simple-prompt"
 
+
+# Tmux MCP server aliases
+source /home/matt/dotfiles-ai/ai-tools/mcp-servers/tmux/aliases.zsh
