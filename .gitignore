@@ -62,6 +62,9 @@ credentials/
 .credentials.json
 *credentials.json
 
+# Claude/MCP specific - project-level configs don't belong in dotfiles
+.mcp.json
+
 # OS/Tool specific
 .zshrc
 packages.microsoft.gpg

@@ -32,6 +32,15 @@ else
     echo "  ✗ User settings not found"
 fi
 
+# Check MCP servers via Claude CLI
+if command -v claude &>/dev/null; then
+    echo ""
+    echo "MCP Servers (via Claude CLI):"
+    claude mcp list 2>&1 | sed 's/^/  /'
+else
+    echo "  ℹ Claude CLI not found - cannot check MCP server status"
+fi
+
 # Check authentication
 if [[ -f ~/.claude/.credentials.json ]]; then
     echo "  ✓ Authentication credentials exist"

@@ -64,12 +64,15 @@ install_mcp_server_deps() {
     
     # Install npm dependencies if package.json exists
     if [[ -f package.json ]]; then
-        # Check if dependencies need to be installed
+        # Always ensure MCP SDK is installed
+        log_info "Installing dependencies for $server_name..."
+        npm install @modelcontextprotocol/sdk zod zod-to-json-schema
+        
+        # Install any other dependencies
         if [[ ! -d node_modules ]] || [[ ! -f package-lock.json ]]; then
-            log_info "Running npm install for $server_name..."
             npm install --production
         else
-            log_info "Dependencies already installed for $server_name"
+            log_info "Core dependencies already installed for $server_name"
         fi
     fi
     
@@ -132,14 +135,14 @@ install_mcp_servers() {
     log_success "MCP servers installed"
 }
 
-# Create Claude settings.json with proper MCP configuration
-create_settings_json() {
-    log_info "Creating Claude Code settings.json..."
+# Create Claude configuration files
+create_config_files() {
+    log_info "Creating Claude Code configuration files..."
     
     # Ensure the .claude directory exists in the stow structure
     mkdir -p "$CLAUDE_DIR/.claude"
     
-    # Create settings.json with MCP server configurations
+    # Create settings.json with Claude configuration (without AWS/Vertex bits that break auth)
     cat > "$CLAUDE_DIR/.claude/settings.json" << EOF
 {
   "model": "claude-3-5-sonnet-20241022",
@@ -160,34 +163,7 @@ create_settings_json() {
     "deny": []
   },
   "env": {
-    "DOTFILES_DIR": "$DOTFILES_DIR",
-    "CLAUDE_CODE_USE_BEDROCK": "false",
-    "CLAUDE_CODE_USE_VERTEX": "false"
-  },
-  "mcpServers": {
-    "tmux": {
-      "command": "node",
-      "args": ["$DOTFILES_DIR/tools-ai/mcp-tmux/server.js"],
-      "env": {
-        "NODE_ENV": "production"
-      }
-    },
-    "neovim": {
-      "command": "node",
-      "args": ["$DOTFILES_DIR/tools-ai/mcp-neovim/server.js"],
-      "env": {
-        "NODE_ENV": "production",
-        "NVIM_LISTEN_ADDRESS": "/tmp/nvim.pipe"
-      }
-    },
-    "playwright": {
-      "command": "node",
-      "args": ["$DOTFILES_DIR/tools-ai/mcp-playwright/server.js"],
-      "env": {
-        "NODE_ENV": "production",
-        "PLAYWRIGHT_BROWSERS_PATH": "$HOME/.cache/ms-playwright"
-      }
-    }
+    "DOTFILES_DIR": "$DOTFILES_DIR"
   },
   "features": {
     "autoSave": true,
@@ -198,7 +174,7 @@ create_settings_json() {
 }
 EOF
     
-    log_success "Settings.json created"
+    log_success "Configuration file created (settings.json)"
 }
 
 # Setup Claude Desktop config if desktop environment exists
@@ -224,23 +200,9 @@ setup_claude_desktop() {
     # Create directory if it doesn't exist
     mkdir -p "$desktop_config_dir"
     
-    # Check if jq is installed
-    if ! command -v jq &>/dev/null; then
-        log_warning "jq not installed, installing..."
-        if [[ "$OS" == "macos" ]]; then
-            brew install jq
-        else
-            sudo apt-get update && sudo apt-get install -y jq
-        fi
-    fi
-    
-    # Extract just the mcpServers section from our settings.json
-    local mcp_config=$(jq '.mcpServers' "$CLAUDE_DIR/.claude/settings.json")
-    
-    # Create Claude Desktop config
+    # Create Claude Desktop config (without MCP servers - they're registered via CLI)
     cat > "$desktop_config_dir/claude_desktop_config.json" << EOF
 {
-  "mcpServers": $mcp_config,
   "theme": "auto",
   "telemetry": false,
   "autoUpdate": true
@@ -281,56 +243,132 @@ stow_configs() {
     # Create .claude directory if it doesn't exist
     mkdir -p "$HOME/.claude"
     
-    # Stow the Claude configs
+    # Stow the Claude configs (this will symlink both settings.json and .mcp.json)
     stow -v -R -t "$HOME" claude
     
     log_success "Configuration files stowed"
+}
+
+# Create symlinks for MCP servers where Claude might expect them
+create_mcp_symlinks() {
+    log_info "Creating MCP server symlinks..."
+    
+    # Create mcp-servers directory if it doesn't exist
+    if [[ -L "$HOME/mcp-servers" ]]; then
+        rm "$HOME/mcp-servers"
+    fi
+    mkdir -p "$HOME/mcp-servers"
+    
+    # Create symlinks for each MCP server
+    ln -sf "$DOTFILES_DIR/tools-ai/mcp-tmux" "$HOME/mcp-servers/tmux"
+    ln -sf "$DOTFILES_DIR/tools-ai/mcp-neovim" "$HOME/mcp-servers/neovim"
+    ln -sf "$DOTFILES_DIR/tools-ai/mcp-playwright" "$HOME/mcp-servers/playwright"
+    
+    log_success "MCP server symlinks created"
+}
+
+# Configure MCP servers globally in ~/.claude.json
+configure_mcp_servers() {
+    log_info "Configuring MCP servers globally..."
+    
+    local config_file="$HOME/.claude.json"
+    
+    # Check if .claude.json exists
+    if [[ -f "$config_file" ]]; then
+        # Backup existing file
+        log_info "Backing up existing ~/.claude.json..."
+        cp "$config_file" "${config_file}.backup.$(date +%Y%m%d_%H%M%S)"
+        
+        # Check if jq is available for JSON manipulation
+        if ! command -v jq &>/dev/null; then
+            log_info "Installing jq for JSON manipulation..."
+            if [[ "$OS" == "macos" ]]; then
+                brew install jq
+            else
+                sudo apt-get update && sudo apt-get install -y jq
+            fi
+        fi
+        
+        # Add or update mcpServers in the existing config
+        jq --arg tmux "$DOTFILES_DIR/tools-ai/mcp-tmux/server.js" \
+           --arg neovim "$DOTFILES_DIR/tools-ai/mcp-neovim/server.js" \
+           --arg playwright "$DOTFILES_DIR/tools-ai/mcp-playwright/server.js" \
+           --arg browsers "$HOME/.cache/ms-playwright" \
+           '.mcpServers = {
+              "tmux": {
+                "type": "stdio",
+                "command": "node",
+                "args": [$tmux],
+                "env": {"NODE_ENV": "production"}
+              },
+              "neovim": {
+                "type": "stdio",
+                "command": "node", 
+                "args": [$neovim],
+                "env": {"NODE_ENV": "production", "NVIM_LISTEN_ADDRESS": "/tmp/nvim.pipe"}
+              },
+              "playwright": {
+                "type": "stdio",
+                "command": "node",
+                "args": [$playwright],
+                "env": {"NODE_ENV": "production", "PLAYWRIGHT_BROWSERS_PATH": $browsers}
+              }
+            }' "${config_file}.backup.$(date +%Y%m%d_%H%M%S)" > "$config_file"
+    else
+        # Create new .claude.json with mcpServers
+        cat > "$config_file" << EOF
+{
+  "mcpServers": {
+    "tmux": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["$DOTFILES_DIR/tools-ai/mcp-tmux/server.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    "neovim": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["$DOTFILES_DIR/tools-ai/mcp-neovim/server.js"],
+      "env": {
+        "NODE_ENV": "production",
+        "NVIM_LISTEN_ADDRESS": "/tmp/nvim.pipe"
+      }
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["$DOTFILES_DIR/tools-ai/mcp-playwright/server.js"],
+      "env": {
+        "NODE_ENV": "production",
+        "PLAYWRIGHT_BROWSERS_PATH": "$HOME/.cache/ms-playwright"
+      }
+    }
+  }
+}
+EOF
+    fi
+    
+    log_success "MCP servers configured globally in ~/.claude.json"
+    log_info "MCP servers will be available in all projects"
 }
 
 # Test MCP servers
 test_mcp_servers() {
     log_info "Testing MCP servers..."
     
-    local all_passed=true
-    
-    # Test tmux server
-    if [[ -x "$DOTFILES_DIR/tools-ai/mcp-tmux/server.js" ]]; then
-        log_info "Testing mcp-tmux..."
-        if timeout 2 node "$DOTFILES_DIR/tools-ai/mcp-tmux/server.js" --test 2>&1 | grep -q "MCP"; then
-            log_success "mcp-tmux is functional"
-        else
-            log_warning "mcp-tmux may need additional configuration"
-            all_passed=false
-        fi
+    # Check if claude CLI is available
+    if ! command -v claude &>/dev/null; then
+        log_warning "Claude CLI not found. Skipping MCP server tests."
+        return 1
     fi
     
-    # Test neovim server
-    if [[ -x "$DOTFILES_DIR/tools-ai/mcp-neovim/server.js" ]]; then
-        log_info "Testing mcp-neovim..."
-        if timeout 2 node "$DOTFILES_DIR/tools-ai/mcp-neovim/server.js" --info 2>&1 | grep -q "MCP"; then
-            log_success "mcp-neovim is functional"
-        else
-            log_warning "mcp-neovim may need additional configuration"
-            all_passed=false
-        fi
-    fi
+    # List registered MCP servers
+    log_info "Listing registered MCP servers..."
+    claude mcp list 2>&1
     
-    # Test playwright server
-    if [[ -x "$DOTFILES_DIR/tools-ai/mcp-playwright/server.js" ]]; then
-        log_info "Testing mcp-playwright..."
-        if [[ -d "$DOTFILES_DIR/tools-ai/mcp-playwright/node_modules" ]]; then
-            log_success "mcp-playwright dependencies installed"
-        else
-            log_warning "mcp-playwright missing dependencies"
-            all_passed=false
-        fi
-    fi
-    
-    if [[ "$all_passed" == "true" ]]; then
-        log_success "All MCP servers are ready!"
-    else
-        log_warning "Some MCP servers may need additional setup"
-    fi
+    log_success "MCP server testing complete"
 }
 
 # Create diagnostic script
@@ -370,6 +408,15 @@ if [[ -f ~/.claude/settings.json ]]; then
     fi
 else
     echo "  ✗ User settings not found"
+fi
+
+# Check MCP servers via Claude CLI
+if command -v claude &>/dev/null; then
+    echo ""
+    echo "MCP Servers (via Claude CLI):"
+    claude mcp list 2>&1 | sed 's/^/  /'
+else
+    echo "  ℹ Claude CLI not found - cannot check MCP server status"
 fi
 
 # Check authentication
@@ -442,13 +489,19 @@ main() {
     install_mcp_servers
     
     # Create configuration files
-    create_settings_json
+    create_config_files
     
     # Setup Claude Desktop if applicable
     setup_claude_desktop
     
     # Stow configurations
     stow_configs
+    
+    # Configure MCP servers globally
+    configure_mcp_servers
+    
+    # Create symlinks for MCP servers
+    create_mcp_symlinks
     
     # Test MCP servers
     test_mcp_servers
@@ -460,20 +513,20 @@ main() {
     echo ""
     log_info "Configuration Status:"
     echo "  ✓ User settings: ~/.claude/settings.json"
-    echo "  ✓ MCP servers installed and configured"
+    echo "  ✓ Global MCP servers: ~/.claude.json"
     has_desktop_environment && echo "  ✓ Desktop config: ~/.config/claude/claude_desktop_config.json (or ~/Library/... on macOS)"
+    echo ""
+    log_info "MCP Servers Configured (global - all projects):"
+    echo "  - tmux: Terminal multiplexer control"
+    echo "  - neovim: Neovim editor integration"
+    echo "  - playwright: Browser automation"
     echo ""
     log_info "Next steps:"
     echo "  1. Authenticate Claude Code: claude login"
     echo "  2. Test MCP servers: claude mcp list"
     echo "  3. Run diagnostics: $CLAUDE_DIR/diagnose.sh"
     echo ""
-    log_info "MCP Servers Available:"
-    echo "  - tmux: Terminal multiplexer control"
-    echo "  - neovim: Neovim editor integration"
-    echo "  - playwright: Browser automation"
-    echo ""
-    log_success "Installation complete! Claude Code is ready to use with MCP servers."
+    log_success "Installation complete! MCP servers are available globally in all projects."
 }
 
 # Run main installation

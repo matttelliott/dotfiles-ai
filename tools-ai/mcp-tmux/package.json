@@ -1,6 +1,7 @@
 {
   "name": "tmux-mcp-server",
   "version": "1.0.0",
+  "type": "module",
   "description": "Model Context Protocol (MCP) server for tmux integration with Claude CLI",
   "main": "server.js",
   "scripts": {
@@ -22,8 +23,11 @@
   "bin": {
     "tmux-mcp-server": "./server.js"
   },
-  "dependencies": {},
-  "devDependencies": {},
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.17.3",
+    "zod": "3.25.76",
+    "zod-to-json-schema": "3.24.6"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/your-repo/dotfiles-ai.git"

@@ -1,6 +1,7 @@
 {
   "name": "mcp-neovim",
   "version": "1.0.0",
+  "type": "module",
   "description": "Neovim MCP server for Claude Desktop and CLI integration",
   "main": "server.js",
   "scripts": {
@@ -20,6 +21,9 @@
   "engines": {
     "node": ">=14.0.0"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.17.3",
+    "zod": "3.25.76",
+    "zod-to-json-schema": "3.24.6"
+  }
 }
